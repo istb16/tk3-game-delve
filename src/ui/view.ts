@@ -42,8 +42,13 @@ function renderItems(state: GameState, settings: Settings): string {
       if (!stack) {
         return `<li class="slot slot--empty"><span class="slot__key">${key}</span></li>`;
       }
+      const label = t(settings.lang, 'aria.useItem', {
+        item: t(settings.lang, `item.${stack.itemId}` as const),
+        slot: key,
+        count: stack.count,
+      });
       return (
-        `<li class="slot"><button class="slot__btn" data-use-slot="${index}">` +
+        `<li class="slot"><button class="slot__btn" data-use-slot="${index}" aria-label="${escapeHtml(label)}">` +
         `<span class="slot__key">${key}</span>` +
         `<svg class="slot__icon" viewBox="0 0 1 1" shape-rendering="crispEdges" aria-hidden="true">` +
         `<use href="#${itemSpriteId(stack.itemId)}" width="1" height="1"/></svg>` +

@@ -113,6 +113,7 @@ export type LogKey =
   | 'log.inventoryFull'
   | 'log.usePotion'
   | 'log.emptySlot'
+  | 'log.alreadyFull'
   | 'log.descendHeal';
 
 export interface LogEntry {

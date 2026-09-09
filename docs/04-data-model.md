@@ -206,6 +206,7 @@ interface StatMods {
 
 interface ItemStack {
   itemId: ItemId;   // 'potion' | 'bomb' | 'scroll' | 'key'
+  /** 1 <= count <= MAX_STACK(3)。溢れた分は次の空きスロットへ送る */
   count: number;
 }
 ```

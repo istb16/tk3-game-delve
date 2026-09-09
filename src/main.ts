@@ -90,8 +90,12 @@ window.addEventListener('keydown', (event) => {
   if (!intent) return;
   event.preventDefault();
 
+  // リピートを受け付けるのは移動と待機だけ。
+  // アイテム使用やリスタートは「1回押したら1回」でなければ、
+  // キーが張り付いただけで在庫を全部飲み干してしまう。
+  const repeatable = intent.type === 'move' || intent.type === 'wait';
   if (event.repeat) {
-    if (repeatBlocked) return;
+    if (!repeatable || repeatBlocked) return;
   } else {
     // 押し直しは常に受け付ける。中断は「押しっぱなし」にだけ掛かる。
     repeatBlocked = false;

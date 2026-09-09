@@ -1,12 +1,13 @@
-import type { Dungeon, Entity, GameState, ItemId, Player, Vec2 } from '../core/types';
+import type { Dungeon, Entity, GameState, ItemId, ItemStack, Player, Vec2 } from '../core/types';
 import type { Rng } from '../core/rng';
 import {
   INVENTORY_SIZE,
+  MAX_STACK,
   POTION_HEAL,
   SPAWN_MIN_DISTANCE,
   potionsPerFloor,
 } from '../core/constants';
-import { addLog } from '../core/log';
+import { addLog, addLogOnce } from '../core/log';
 import { UNREACHABLE, bfsDistances, tileIndex } from './dungeon';
 
 let nextEntityId = 0;
@@ -64,31 +65,56 @@ export function pickupAt(state: GameState, pos: Vec2): void {
   const entity = state.entities[index] as Entity;
   const { itemId, count } = entity.payload;
 
-  if (!addToInventory(state.player, itemId, count)) {
+  const accepted = addToInventory(state.player, itemId, count);
+  if (accepted === 0) {
     // 満杯なら床に残す。勝手に消えると「拾えなかった」ことに気づけない。
-    addLog(state.log, 'log.inventoryFull', {}, 'bad');
+    // 同じマスに立ち続けても繰り返し積まないよう addLogOnce を使う。
+    addLogOnce(state.log, 'log.inventoryFull', {}, 'bad');
     return;
   }
 
-  state.entities.splice(index, 1);
-  addLog(state.log, 'log.pickup', { item: itemId, count }, 'gold');
-}
-
-/** @returns 入れられたか（満杯なら false） */
-function addToInventory(player: Player, itemId: ItemId, count: number): boolean {
-  const existing = player.inventory.find((slot) => slot?.itemId === itemId);
-  if (existing) {
-    existing.count += count;
-    return true;
+  if (accepted < count) {
+    // 一部だけ入った分は床に残す
+    entity.payload.count = count - accepted;
+  } else {
+    state.entities.splice(index, 1);
   }
-  const empty = player.inventory.indexOf(null);
-  if (empty === -1) return false;
-  player.inventory[empty] = { itemId, count };
-  return true;
+  addLog(state.log, 'log.pickup', { item: itemId, count: accepted }, 'gold');
 }
 
-export function createInventory(): (null)[] {
-  return new Array<null>(INVENTORY_SIZE).fill(null);
+/**
+ * 入る分だけ入れて、実際に受け取った個数を返す。
+ *
+ * 1スロットの上限を超えたら次のスロットへ送る。上限がないと同種のアイテムが
+ * 1スロットに無限に積み上がり、スロット数が持ち運び量の制限として機能しない。
+ */
+function addToInventory(player: Player, itemId: ItemId, count: number): number {
+  let remaining = count;
+
+  // まず既存のスタックの空き分に詰める
+  for (const slot of player.inventory) {
+    if (remaining === 0) break;
+    if (slot?.itemId !== itemId) continue;
+    const room = MAX_STACK - slot.count;
+    if (room <= 0) continue;
+    const put = Math.min(room, remaining);
+    slot.count += put;
+    remaining -= put;
+  }
+
+  // 残りは空きスロットへ
+  for (let i = 0; i < player.inventory.length && remaining > 0; i++) {
+    if (player.inventory[i] !== null) continue;
+    const put = Math.min(MAX_STACK, remaining);
+    player.inventory[i] = { itemId, count: put };
+    remaining -= put;
+  }
+
+  return count - remaining;
+}
+
+export function createInventory(): (ItemStack | null)[] {
+  return new Array<ItemStack | null>(INVENTORY_SIZE).fill(null);
 }
 
 // --- 使用 --------------------------------------------------------------------
@@ -98,16 +124,44 @@ export function useItem(state: GameState, slot: number): boolean {
   const stack = state.player.inventory[slot];
   if (!stack || stack.count <= 0) {
     // 空きスロットを押しただけでターンを失うのは理不尽なので消費しない
-    addLog(state.log, 'log.emptySlot', { slot: slot + 1 }, 'info');
+    addLogOnce(state.log, 'log.emptySlot', { slot: slot + 1 }, 'info');
     return false;
   }
 
-  const healed = healPlayer(state, POTION_HEAL);
-  addLog(state.log, 'log.usePotion', { healed }, 'good');
+  if (!applyItem(state, stack.itemId)) return false;
 
   stack.count -= 1;
   if (stack.count <= 0) state.player.inventory[slot] = null;
   return true;
+}
+
+/**
+ * アイテムの効果を適用する。
+ *
+ * @returns 効果があったか。false なら**アイテムもターンも消費しない**。
+ *   満タンでポーションを誤爆すると、1本失うだけでなく敵に1ターン与えることになる。
+ *   回復が最も乏しい資源である以上、その誤爆は取り返しがつかない。
+ */
+function applyItem(state: GameState, itemId: ItemId): boolean {
+  switch (itemId) {
+    case 'potion': {
+      if (state.player.hp >= state.player.maxHp) {
+        addLogOnce(state.log, 'log.alreadyFull', {}, 'info');
+        return false;
+      }
+      const healed = healPlayer(state, POTION_HEAL);
+      addLog(state.log, 'log.usePotion', { healed }, 'good');
+      return true;
+    }
+    default:
+      // 新しいアイテムを ItemId に足したらここで型エラーになる。
+      // 分岐を書き忘れたまま「飲むと回復する」挙動を引き継がせないための番人。
+      return assertNever(itemId);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`未処理のアイテム: ${String(value)}`);
 }
 
 /** 最大HPに対する割合で回復し、実際に回復した量を返す。 */
