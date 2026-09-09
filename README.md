@@ -31,14 +31,17 @@ npm install && npm run build
 npm run dev        # 開発サーバ (http://localhost:5273)
 npm run typecheck  # 型検査
 npm run build      # 単一HTML化 → dist/delve.html
+
+node tools/difficulty-model.mjs   # 難易度カーブの検算
 ```
 
 ## 実装状況
 
-Phase 1（基本ループ）まで完了。詳細は [docs/07-roadmap.md](docs/07-roadmap.md)。
+詳細は [docs/09-roadmap.md](docs/09-roadmap.md)。
 
-- [x] Phase 1 — ランダムダンジョン / 移動 / 敵AI / 戦闘 / 階層 / 死亡 / リスタート
-- [ ] Phase 2 — 経験値によるパーク選択 / 装備 / アイテム / localStorage
+- [x] Phase 1a — ランダムダンジョン / 移動 / 敵AI / 戦闘 / 階層 / 死亡 / リスタート
+- [ ] Phase 1b — ドット絵スプライトと歩行アニメーション / favicon / 難易度カーブの適用
+- [ ] Phase 2 — パーク選択 / 装備 / アイテム / localStorage / テスト導入
 - [ ] Phase 3 — 敵7種と特殊能力 / ボス / ランダムイベント / ステータス効果
 - [ ] Phase 4 — 実績 / 演出 / サウンド / モバイル最適化
 
