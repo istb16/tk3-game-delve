@@ -4,7 +4,7 @@
   --bg: #0b0d12;
   --surface: #141822;
   --surface-2: #1d2330;
-  --wall: #2b3242;
+  --line: #2b3242;
   --text: #e8ecf4;
   --text-dim: #8b93a7;
   --accent: #f5a524;
@@ -51,7 +51,7 @@ body {
 kbd {
   display: inline-block;
   padding: 0 4px;
-  border: 1px solid var(--wall);
+  border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--surface-2);
   color: var(--text-dim);
@@ -68,7 +68,7 @@ kbd {
   justify-content: space-between;
   gap: var(--gap);
   padding: 10px 14px;
-  border: 1px solid var(--wall);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
 }
@@ -144,6 +144,50 @@ kbd {
   background: var(--info);
 }
 
+/* --- 設定（言語 / 方向キー） ---------------------------------------------- */
+
+.settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.settings__group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings__label {
+  margin-right: 2px;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.settings__btn {
+  min-width: 34px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.settings__btn:hover {
+  color: var(--text);
+}
+
+.settings__btn--active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* --- ステージ ------------------------------------------------------------- */
 
 .stage {
@@ -154,7 +198,7 @@ kbd {
 }
 
 .stage__board {
-  border: 1px solid var(--wall);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--bg);
   padding: 8px;
@@ -167,102 +211,23 @@ kbd {
   aspect-ratio: 1;
 }
 
-/* --- タイル --------------------------------------------------------------- */
+/* --- 盤面（ドット絵） ------------------------------------------------------ */
 
-.tile__base--floor {
-  fill: var(--surface-2);
-}
-
-.tile__base--wall {
-  fill: var(--wall);
-}
-
-.tile__grid {
-  fill: none;
-  stroke: rgb(255 255 255 / 0.04);
-  stroke-width: 0.02;
-}
-
-.tile__wall-edge {
-  stroke: rgb(255 255 255 / 0.1);
-  stroke-width: 0.05;
-  stroke-linecap: round;
-}
+/* 色はスプライト定義の fill が持つので、CSS は状態だけを扱う。 */
 
 /* 一度見たが今は見えていないマス。地形だけを暗く残す。 */
 .tile--dim {
   opacity: 0.34;
 }
 
-.sprite__stairs {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 0.07;
-  stroke-linecap: square;
-}
-
-.sprite__stairs-riser {
-  stroke: var(--accent);
-  stroke-width: 0.05;
-  opacity: 0.5;
-}
-
-/* --- アクター ------------------------------------------------------------- */
-
-.sprite__glow {
+/* プレイヤーが持つ灯りの表現。暗い地下を松明で進む感じを出す。 */
+.actor__torch {
   fill: var(--accent);
-  opacity: 0.09;
-}
-
-.sprite__player-head,
-.sprite__player-body {
-  fill: var(--text);
-}
-
-.sprite__enemy {
-  fill: var(--danger);
-}
-
-.sprite__enemy-line {
-  fill: none;
-  stroke: var(--danger);
-  stroke-width: 0.05;
-  stroke-linecap: round;
-}
-
-.sprite__enemy-eye {
-  fill: var(--bg);
-}
-
-.sprite__enemy-socket {
-  fill: var(--bg);
-}
-
-.sprite__enemy-core {
-  fill: var(--accent);
-}
-
-/* 塗りと線は必ず別々に上書きする。
-   fill 用の要素に stroke を足すと、stroke-width の既定値 1 が
-   viewBox 上では「1マス分の太さ」になり、スプライトが巨大な塊に潰れる。 */
-.actor--rat .sprite__enemy {
-  fill: #b06a4a;
-}
-
-.actor--rat .sprite__enemy-line {
-  stroke: #b06a4a;
-}
-
-.actor--goblin .sprite__enemy {
-  fill: #6b9d4a;
-}
-
-.actor--bat .sprite__enemy {
-  fill: #8a6ec4;
+  opacity: 0.08;
 }
 
 .actor__hp-track {
-  fill: rgb(0 0 0 / 0.6);
+  fill: rgb(0 0 0 / 0.65);
 }
 
 .actor__hp-fill {
@@ -278,7 +243,7 @@ kbd {
 }
 
 .log {
-  border: 1px solid var(--wall);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   padding: 10px 12px;
@@ -336,18 +301,28 @@ kbd {
   letter-spacing: 0.06em;
 }
 
-/* --- 方向パッド（タッチ環境のみ） ----------------------------------------- */
+/* --- 方向パッド ------------------------------------------------------------ */
 
+/*
+ * 表示可否は <html data-dpad="auto|on|off"> で決まる。
+ * 'auto' の判定を CSS のメディアクエリに任せることで、リサイズや端末回転を
+ * JS で監視せずに済む。設定値そのものは localStorage に保存される。
+ */
 .dpad {
   display: none;
-  grid-template-columns: repeat(3, 56px);
-  grid-template-rows: repeat(3, 56px);
+  grid-template-columns: repeat(3, 58px);
+  grid-template-rows: repeat(3, 58px);
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+:root[data-dpad='on'] .dpad {
+  display: grid;
 }
 
 .dpad__btn {
-  border: 1px solid var(--wall);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
@@ -357,6 +332,13 @@ kbd {
 
 .dpad__btn:active {
   background: var(--surface-2);
+}
+
+/* タップ時の半透明ハイライトとダブルタップ拡大を抑える */
+.dpad__btn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .dpad__btn--up {
@@ -393,7 +375,7 @@ kbd {
 .modal__panel {
   width: min(360px, 100%);
   padding: 24px;
-  border: 1px solid var(--wall);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   text-align: center;
@@ -472,10 +454,41 @@ kbd {
   }
 }
 
-/* ポインタが粗い環境＝タッチ操作。そこでだけ方向パッドを出す。 */
-@media (pointer: coarse) {
-  .dpad {
+/* 'auto' はタッチ端末か狭い画面で出す。iPhone は両方に該当する。 */
+@media (pointer: coarse), (max-width: 900px) {
+  :root[data-dpad='auto'] .dpad {
     display: grid;
+  }
+}
+
+@media (max-width: 900px) {
+  /* iPhone の縦画面に HUD + 盤面 + ログ + 方向パッドを収めるため余白を詰める */
+  :root {
+    --gap: 8px;
+  }
+
+  /* 方向パッドは通常フローの最後に置く。sticky にすると直前のヒント行に重なる。 */
+  .dpad {
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(3, 52px);
+    gap: 6px;
+    margin-top: auto;
+  }
+
+  .settings {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* タッチ端末でキーボードの案内を出しても意味がないので、標語だけ残す。 */
+@media (pointer: coarse) {
+  .hint__keys {
+    display: none;
+  }
+
+  .hint {
+    justify-content: center;
   }
 }
 

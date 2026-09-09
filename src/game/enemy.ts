@@ -1,12 +1,14 @@
 import type { Dungeon, Enemy, GameState, Vec2 } from '../core/types';
 import type { EnemyDef } from '../data/enemies';
 import type { Rng } from '../core/rng';
-import { spawnableAt } from '../data/enemies';
+import { SPAWN_POOL, spawnWeight } from '../data/enemies';
 import {
   ENEMY_AGGRO_RANGE,
-  MAX_ENEMIES_PER_FLOOR,
   SPAWN_MIN_DISTANCE,
-  floorScale,
+  atkScale,
+  defScale,
+  enemyCountFor,
+  hpScale,
 } from '../core/constants';
 import {
   UNREACHABLE,
@@ -23,8 +25,7 @@ let nextEnemyId = 0;
 // --- 生成 --------------------------------------------------------------------
 
 export function spawnEnemies(rng: Rng, dungeon: Dungeon, floor: number): Enemy[] {
-  const count = Math.min(3 + Math.floor(floor / 2), MAX_ENEMIES_PER_FLOOR);
-  const pool = spawnableAt(floor);
+  const count = enemyCountFor(floor);
 
   // start から一定距離離れた到達可能マスだけを候補にする。
   // 開幕から選択の余地なく殴られる状況を作らないため。
@@ -42,25 +43,41 @@ export function spawnEnemies(rng: Rng, dungeon: Dungeon, floor: number): Enemy[]
 
   const enemies: Enemy[] = [];
   for (let i = 0; i < count && i < candidates.length; i++) {
-    enemies.push(createEnemy(pickWeighted(rng, pool), candidates[i] as Vec2, floor));
+    enemies.push(createEnemy(pickWeighted(rng, floor), candidates[i] as Vec2, floor));
   }
   return enemies;
 }
 
-function pickWeighted(rng: Rng, pool: readonly EnemyDef[]): EnemyDef {
-  const total = pool.reduce((sum, def) => sum + def.weight, 0);
-  if (total <= 0) return rng.pick(pool);
+/**
+ * 深度に応じた重みで敵を1体選ぶ。
+ *
+ * 十分に深いとガウス重みが全て 0 に潰れるため、その場合は
+ * 最も深い階層を担当する敵にフォールバックする（無限に潜れる設計のため必須）。
+ */
+function pickWeighted(rng: Rng, floor: number): EnemyDef {
+  const weights = SPAWN_POOL.map((def) => spawnWeight(def, floor));
+  const total = weights.reduce((sum, w) => sum + w, 0);
+
+  if (total <= 0) return deepestOf(SPAWN_POOL);
+
   let roll = rng.next() * total;
-  for (const def of pool) {
-    roll -= def.weight;
-    if (roll < 0) return def;
+  for (let i = 0; i < SPAWN_POOL.length; i++) {
+    roll -= weights[i] as number;
+    if (roll < 0) return SPAWN_POOL[i] as EnemyDef;
   }
-  return pool[pool.length - 1] as EnemyDef;
+  return SPAWN_POOL[SPAWN_POOL.length - 1] as EnemyDef;
+}
+
+function deepestOf(pool: readonly EnemyDef[]): EnemyDef {
+  let best = pool[0];
+  if (!best) throw new Error('SPAWN_POOL が空');
+  for (const def of pool) if (def.peakFloor > best.peakFloor) best = def;
+  return best;
 }
 
 function createEnemy(def: EnemyDef, pos: Vec2, floor: number): Enemy {
-  const scale = floorScale(floor);
-  const hp = Math.floor(def.hp * scale);
+  // HP / 攻撃 / 防御で係数を分ける。防御が最も緩やかなのは docs/07 §7.4 レバー1 の通り。
+  const hp = Math.floor(def.hp * hpScale(floor));
   return {
     id: `enemy-${nextEnemyId++}`,
     kind: def.kind,
@@ -69,11 +86,12 @@ function createEnemy(def: EnemyDef, pos: Vec2, floor: number): Enemy {
     pos: { ...pos },
     hp,
     maxHp: hp,
-    attack: Math.floor(def.attack * scale),
-    defense: Math.floor(def.defense * scale),
+    attack: Math.floor(def.attack * atkScale(floor)),
+    defense: Math.floor(def.defense * defScale(floor)),
     speed: def.speed,
-    exp: Math.floor(def.exp * scale),
-    gold: Math.floor(def.gold * scale),
+    exp: Math.floor(def.exp * hpScale(floor)),
+    gold: Math.floor(def.gold * hpScale(floor)),
+    steps: 0,
   };
 }
 
@@ -137,6 +155,7 @@ function moveIfFree(state: GameState, enemy: Enemy, step: Vec2): boolean {
   if (enemyAt(state.enemies, nx, ny)) return false;
   enemy.pos.x = nx;
   enemy.pos.y = ny;
+  enemy.steps += 1; // 歩行アニメーションのフレーム番号の出典
   return true;
 }
 

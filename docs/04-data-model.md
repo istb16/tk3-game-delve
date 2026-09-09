@@ -23,9 +23,11 @@ GameState
 ├─ log: LogEntry[]                  ✅ メッセージログ（末尾が最新）
 ├─ stats: RunStats                  ✅ このRunの集計
 ├─ entities: Entity[]               🔜 P2 床に落ちている物
-├─ pending: PendingChoice | null    🔜 P2 レベルアップ/イベントの選択待ち
-└─ settings: Settings               🔜 P4 サウンド等
+└─ pending: PendingChoice | null    🔜 P2 レベルアップ/イベントの選択待ち
 ```
+
+表示設定（言語 / 方向キー）は `GameState` に入れない。Run が終わっても残る値であり、
+ゲームの進行状態とは寿命が違うため、`Settings` として別に持つ（→ 4.11）。
 
 `rng` を状態に持たせているのは、フロア生成に `rng.fork(floor)` で派生させた子 RNG を使うため。
 ターン中の乱数消費がフロア生成結果に影響しないので、**同じシードなら常に同じフロアが出る**。
@@ -69,7 +71,7 @@ interface Actor {
   maxHp: number;          // ✅
   attack: number;         // ✅
   defense: number;        // ✅
-  steps: number;          // 🔜 P1 移動に成功した累積回数
+  steps: number;          // ✅ 移動に成功した累積回数
   effects: StatusEffect[];// 🔜 P3 毒 / 火傷 / 鈍足 など
 }
 ```
@@ -149,8 +151,9 @@ interface EnemyDef {
 }
 ```
 
-> 現行実装は `minFloor` + `weight` の単純方式。
-> ガウス方式への差し替えは Phase 1 の残作業。
+> ✅ 実装済み（[`src/data/enemies.ts`](../src/data/enemies.ts)）。
+> 十分に深いと全ての重みが 0 に潰れるため、その場合は `peakFloor` が最も深い敵に
+> フォールバックする。深度に上限がない設計なので、この退避は必須。
 
 ## 4.5 床のオブジェクト 🔜 P2
 
@@ -255,6 +258,24 @@ interface SpriteDef {
 `game/` はスプライトを一切参照しない。`EnemyKind` から `SpriteDef` への対応付けは
 `ui/` 側のテーブルが持つ。
 
+## 4.9.1 ログ
+
+`game/` は表示言語を知らないため、完成した文章ではなく識別子とパラメータを積む。
+文章への組み立ては `ui/` が表示言語に応じて行う（→ [05 §5.14](05-ui-design.md)）。
+
+```ts
+export type LogKey =
+  | 'log.welcome' | 'log.floor' | 'log.playerHit'
+  | 'log.enemyHit' | 'log.enemyDies' | 'log.levelUp' | 'log.died';
+
+interface LogEntry {
+  id: number;
+  key: LogKey;
+  params: Readonly<Record<string, string | number>>;
+  tone: LogTone;   // 'info' | 'good' | 'bad' | 'gold' | 'system'
+}
+```
+
 ## 4.10 Run 統計
 
 ```ts
@@ -269,9 +290,30 @@ interface RunStats {
 
 死亡時にリザルト画面へ渡し、スコアを計算して `SaveData` に反映する。
 
-## 4.11 セーブデータ 🔜 P2
+## 4.11 永続化
 
-localStorage キー: `delve.save.v1`
+localStorage は用途ごとにキーを分ける。設定はゲームの進行と寿命が違う
+（Run をまたいでも、スキーマを変えても残したい）ため、同じ入れ物に入れない。
+
+### 設定 ✅ `delve.settings.v1`
+
+```ts
+export type Lang = 'en' | 'ja';
+export type DpadMode = 'auto' | 'on' | 'off';
+
+interface Settings {
+  lang: Lang;
+  dpad: DpadMode;
+}
+```
+
+`lang` の初期値は `navigator.language` から推定する。`dpad` の初期値は `'auto'`。
+
+**読み込みは常に既知の値だけを受け入れる。** 手で書き換えられた localStorage で
+未定義の状態に落ちないようにするため、`LANGS.find(v => v === record.lang) ?? 既定値`
+のように照合してから採用する。
+
+### 記録 🔜 P2 `delve.save.v1`
 
 バージョンをキー名に含めることで、スキーマ変更時に旧データを壊さず無視できる。
 

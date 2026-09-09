@@ -358,3 +358,88 @@ HUD・ログ・モーダルは現代的UIとして、盤面のパレットとは
 | `--rare` | `#a855f7` | レア装備 |
 
 `--text` と `--bg` のコントラスト比は 12:1 以上を維持する。
+
+## 5.14 表示言語（EN / JA）
+
+### 訳す範囲の線引き
+
+| 訳さない（両言語とも英語） | 訳す |
+|---|---|
+| タイトル `DELVE` | ログの文章 |
+| ステータス見出し `HP` `FLOOR` `EXP` `GOLD` `LV` | ヒント・標語 |
+| リザルト見出し `DEPTH` `KILLS` `LEVEL` `TIME` | 設定ラベル |
+| `LOG` / `YOU DIED` / `DELVE AGAIN` | 読み上げ用ラベル（aria-label） |
+| 敵の名前 `Rat` `Goblin` `Bat` | タグライン |
+
+**判断基準**: 短く、ゲームの文脈で意味が自明な語は訳さない。
+`HP` を「体力」にしても読み取りは速くならず、視線が止まる分だけ遅くなる。
+一方で文章は、母語で読めることに明確な価値がある。
+
+### ログを訳せる形にする
+
+ログは `game/` が作るが、`game/` は表示言語を知ってはいけない（→ [02 §2.1](02-architecture.md)）。
+そこで **`game/` は完成した文章ではなくメッセージ識別子とパラメータだけを積む**。
+
+```ts
+// game/combat.ts
+addLog(state.log, 'log.playerHit', { name: target.name, damage }, 'info');
+
+// ui/view.ts が表示時に組み立てる
+t(settings.lang, entry.key, entry.params)
+//  EN: 'You hit Goblin for 7.'
+//  JA: 'Goblin に 7 のダメージを与えた。'
+```
+
+言語を切り替えると、**過去のログも含めて**その場で切り替わる。
+文章として保存していないため、後から言語を変えても表示が混ざらない。
+
+### 初期値
+
+`navigator.language` が `ja` で始まれば JA、それ以外は EN。
+一度でも切り替えたらその選択を優先する（localStorage に保存）。
+
+## 5.15 方向キーの表示切り替え
+
+### 3つの状態
+
+| 設定 | 挙動 |
+|---|---|
+| `AUTO`（既定） | タッチ端末、または画面幅 900px 未満で表示 |
+| `ON` | 画面サイズによらず常に表示 |
+| `OFF` | 常に非表示 |
+
+`AUTO` の判定は **CSS のメディアクエリに任せる**。
+JS で `window.innerWidth` を監視すると、リサイズと端末回転のたびに再描画が要る。
+
+```css
+.dpad { display: none; }
+:root[data-dpad='on'] .dpad { display: grid; }
+
+@media (pointer: coarse), (max-width: 900px) {
+  :root[data-dpad='auto'] .dpad { display: grid; }
+}
+```
+
+JS 側の責務は `<html data-dpad="...">` を置くことだけ。
+
+### タッチ環境での配慮
+
+- ボタンは 52〜58px 角。指で確実に押せる大きさを確保する。
+- `-webkit-tap-highlight-color: transparent` と `touch-action: manipulation` で、
+  タップ時の青い矩形とダブルタップ拡大を止める。
+- `padding-bottom: env(safe-area-inset-bottom)` で iPhone のホームインジケータを避ける。
+- タッチ環境では `WASD / ↑↓←→` のキーボード案内を隠す。押せないキーの説明は雑音になる。
+- 方向パッドは **`position: sticky` にしない**。直前のヒント行に重なるため、
+  通常フローの最後に置く。
+
+## 5.16 設定の永続化
+
+localStorage キー: `delve.settings.v1`
+
+```json
+{ "lang": "ja", "dpad": "auto" }
+```
+
+読み込み時は**既知の値だけを受け入れる**。手で書き換えられていても、
+JSON が壊れていても、localStorage 自体が使えなくても、既定値で必ず起動する
+（詳細は [04 §4.11](04-data-model.md)）。

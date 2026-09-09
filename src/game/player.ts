@@ -1,5 +1,5 @@
 import type { GameState, Player, Vec2 } from '../core/types';
-import { LEVEL_UP_GAIN, PLAYER_BASE, expToNextLevel } from '../core/constants';
+import { LEVEL_UP_GAIN, LEVEL_UP_HEAL, PLAYER_BASE, expToNextLevel } from '../core/constants';
 import { addLog } from '../core/log';
 
 export function createPlayer(pos: Vec2): Player {
@@ -14,6 +14,7 @@ export function createPlayer(pos: Vec2): Player {
     exp: 0,
     nextExp: expToNextLevel(1),
     gold: 0,
+    steps: 0,
   };
 }
 
@@ -32,13 +33,18 @@ export function gainExp(state: GameState, amount: number): void {
     player.level += 1;
     player.nextExp = expToNextLevel(player.level);
 
-    player.maxHp += LEVEL_UP_GAIN.maxHp;
-    player.attack += LEVEL_UP_GAIN.attack;
-    player.defense += LEVEL_UP_GAIN.defense;
-    // レベルアップは全回復を兼ねる。深く潜り続ける動機になる。
-    player.hp = player.maxHp;
+    // 累積加算ではなくレベルから毎回引き直す。defense の +0.5/Lv を
+    // 端数を持ち越さずに扱えるため（docs/07 §7.5）。
+    const gained = player.level - 1;
+    player.maxHp = PLAYER_BASE.maxHp + LEVEL_UP_GAIN.maxHp * gained;
+    player.attack = PLAYER_BASE.attack + LEVEL_UP_GAIN.attack * gained;
+    player.defense = PLAYER_BASE.defense + Math.floor(LEVEL_UP_GAIN.defense * gained);
 
-    addLog(state.log, `LEVEL UP! You are now Lv ${player.level}.`, 'good');
+    // 全回復にするとポーションの価値が消え、「今使うか取っておくか」の判断が失われる。
+    const healed = Math.floor(player.maxHp * LEVEL_UP_HEAL);
+    player.hp = Math.min(player.maxHp, player.hp + healed);
+
+    addLog(state.log, 'log.levelUp', { level: player.level, healed }, 'good');
   }
 }
 

@@ -60,6 +60,7 @@ function resolveMove(state: GameState, step: Vec2): boolean {
 
   state.player.pos.x = nx;
   state.player.pos.y = ny;
+  state.player.steps += 1; // 歩行アニメーションのフレーム番号の出典
 
   if (tileAt(state.dungeon, nx, ny) === 'stairs') descend(state);
   return true;

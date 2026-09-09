@@ -71,12 +71,15 @@ tk3-game-delve/
    │  ├─ hud.ts          ✅ ステータス表示
    │  ├─ board.ts        ✅ ダンジョン描画
    │  ├─ sprites.ts      ✅ ドット絵スプライト定義（→ 05）
-   │  ├─ pixel.ts        🔜 P1 スプライト定義 -> SVG symbol 変換
-   │  ├─ favicon.ts      🔜 P1 スプライトから favicon を生成（→ 05 §5.7）
+   │  ├─ pixel.ts        ✅ スプライト定義 -> SVG symbol 変換
+   │  ├─ favicon.ts      ✅ スプライトから favicon を生成（→ 05 §5.7）
+   │  ├─ i18n.ts         ✅ EN / JA の表示文字列（→ 05 §5.14）
    │  ├─ input.ts        ✅ キーボード / マウス / タッチ
    │  └─ panels.ts       🔜 P2 装備 / パーク / アイテム
    ├─ audio/sfx.ts       🔜 P4 Web Audio 効果音
-   ├─ storage/save.ts    🔜 P2 localStorage 読み書き
+   ├─ storage/
+   │  ├─ settings.ts     ✅ 言語 / 方向キー設定の永続化
+   │  └─ save.ts         🔜 P2 ハイスコア・実績の永続化
    └─ styles/main.css    ✅ スタイル
 ```
 

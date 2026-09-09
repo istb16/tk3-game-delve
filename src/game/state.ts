@@ -37,8 +37,8 @@ export function createGame(seed: number = randomSeed()): GameState {
     },
   };
 
-  addLog(state.log, 'You descend into the dark. Explore. Fight. Descend.', 'system');
-  addLog(state.log, `FLOOR ${floor}`, 'system');
+  addLog(state.log, 'log.welcome', {}, 'system');
+  addLog(state.log, 'log.floor', { floor }, 'system');
   return state;
 }
 
@@ -55,5 +55,5 @@ export function descend(state: GameState): void {
   state.enemies = spawnEnemies(floorRng, dungeon, state.floor);
 
   updateVisibility(dungeon, state.player.pos);
-  addLog(state.log, `FLOOR ${state.floor}`, 'system');
+  addLog(state.log, 'log.floor', { floor: state.floor }, 'system');
 }

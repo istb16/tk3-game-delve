@@ -38,6 +38,11 @@ export interface Actor {
   maxHp: number;
   attack: number;
   defense: number;
+  /**
+   * 移動に成功した累積回数。UI が `steps % 2` を歩行フレーム番号として使う。
+   * アニメーション状態を UI に持たせず、ゲーム状態から導出するための出典。
+   */
+  steps: number;
 }
 
 export interface Player extends Actor {
@@ -66,9 +71,26 @@ export interface Enemy extends Actor {
 
 export type LogTone = 'info' | 'good' | 'bad' | 'gold' | 'system';
 
+/**
+ * ログのメッセージ識別子。
+ *
+ * game/ は完成した文章ではなく「何が起きたか」だけを積み、ui/ が表示言語に応じて
+ * 文章に組み立てる。これで game/ が表示言語を知らずに済み、
+ * 「ロジックは描画を知らない」という境界を保ったまま多言語化できる。
+ */
+export type LogKey =
+  | 'log.welcome'
+  | 'log.floor'
+  | 'log.playerHit'
+  | 'log.enemyHit'
+  | 'log.enemyDies'
+  | 'log.levelUp'
+  | 'log.died';
+
 export interface LogEntry {
   id: number;
-  text: string;
+  key: LogKey;
+  params: Readonly<Record<string, string | number>>;
   tone: LogTone;
 }
 

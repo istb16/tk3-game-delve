@@ -1,23 +1,25 @@
 import type { GameState } from '../core/types';
+import type { Settings } from '../storage/settings';
 import { renderBoard } from './board';
 import { renderHud } from './hud';
+import { t } from './i18n';
 
 /** ルート描画。状態を読んで画面を組み立てるだけで、状態を書き換えない。 */
-export function render(root: HTMLElement, state: GameState): void {
+export function render(root: HTMLElement, state: GameState, settings: Settings): void {
   root.innerHTML = `
-    ${renderHud(state)}
+    ${renderHud(state, settings)}
     <main class="stage">
-      <div class="stage__board">${renderBoard(state)}</div>
+      <div class="stage__board">${renderBoard(state, settings)}</div>
       <aside class="stage__side">
-        ${renderLog(state)}
+        ${renderLog(state, settings)}
       </aside>
     </main>
     <footer class="hint">
-      <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> Move</span>
-      <span>Explore. Fight. Descend.</span>
+      <span class="hint__keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> ${t(settings.lang, 'ui.move')}</span>
+      <span>${t(settings.lang, 'ui.motto')}</span>
     </footer>
-    ${renderDpad()}
-    ${state.phase === 'dead' ? renderDeathModal(state) : ''}
+    ${renderDpad(settings)}
+    ${state.phase === 'dead' ? renderDeathModal(state, settings) : ''}
   `;
 
   // innerHTML で挿入した要素の autofocus は効かないため明示的に当てる。
@@ -27,47 +29,61 @@ export function render(root: HTMLElement, state: GameState): void {
   }
 }
 
-function renderLog(state: GameState): string {
+function renderLog(state: GameState, settings: Settings): string {
   // 末尾が最新。新しいものを上に出すと視線が飛ぶので、下から積み上げる。
-  const entries = state.log.slice(-12);
-  const items = entries
-    .map((entry) => `<li class="log__line log__line--${entry.tone}">${escapeHtml(entry.text)}</li>`)
+  const items = state.log
+    .slice(-12)
+    .map(
+      (entry) =>
+        `<li class="log__line log__line--${entry.tone}">${escapeHtml(
+          t(settings.lang, entry.key, entry.params),
+        )}</li>`,
+    )
     .join('');
-  return `<section class="log"><h2 class="log__title">LOG</h2><ul class="log__list">${items}</ul></section>`;
+  return `<section class="log"><h2 class="log__title">${t(settings.lang, 'ui.log')}</h2><ul class="log__list">${items}</ul></section>`;
 }
 
-function renderDpad(): string {
+/**
+ * 方向パッド。表示可否は settings.dpad と CSS のメディアクエリで決まる（→ main.css）。
+ * 'auto' のときだけ画面サイズとポインタ種別で自動判定する。
+ */
+function renderDpad(settings: Settings): string {
+  const lang = settings.lang;
+  const btn = (dir: string, label: string, glyph: string) =>
+    `<button class="dpad__btn dpad__btn--${dir}" data-dir="${dir}" aria-label="${label}">${glyph}</button>`;
+
   return `
-    <nav class="dpad" aria-label="Move">
-      <button class="dpad__btn dpad__btn--up"    data-dir="up"    aria-label="Move up">&uarr;</button>
-      <button class="dpad__btn dpad__btn--left"  data-dir="left"  aria-label="Move left">&larr;</button>
-      <button class="dpad__btn dpad__btn--wait"  data-dir="wait"  aria-label="Wait">&bull;</button>
-      <button class="dpad__btn dpad__btn--right" data-dir="right" aria-label="Move right">&rarr;</button>
-      <button class="dpad__btn dpad__btn--down"  data-dir="down"  aria-label="Move down">&darr;</button>
+    <nav class="dpad" aria-label="${t(lang, 'ui.move')}">
+      ${btn('up', t(lang, 'aria.moveUp'), '&uarr;')}
+      ${btn('left', t(lang, 'aria.moveLeft'), '&larr;')}
+      ${btn('wait', t(lang, 'aria.wait'), '&bull;')}
+      ${btn('right', t(lang, 'aria.moveRight'), '&rarr;')}
+      ${btn('down', t(lang, 'aria.moveDown'), '&darr;')}
     </nav>
   `;
 }
 
-function renderDeathModal(state: GameState): string {
+function renderDeathModal(state: GameState, settings: Settings): string {
   const elapsed = Math.max(0, Date.now() - state.stats.startedAt);
   return `
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="death-title">
       <div class="modal__panel">
         <h2 class="modal__title" id="death-title">YOU DIED</h2>
         <dl class="result">
-          ${resultRow('DEPTH', `Floor ${state.stats.deepestFloor}`)}
+          ${resultRow('DEPTH', `FLOOR ${state.stats.deepestFloor}`)}
           ${resultRow('KILLS', String(state.stats.kills))}
           ${resultRow('GOLD', String(state.stats.goldEarned))}
           ${resultRow('LEVEL', String(state.player.level))}
           ${resultRow('TIME', formatDuration(elapsed))}
         </dl>
-        <button class="btn btn--primary" data-action="restart" autofocus>DELVE AGAIN</button>
-        <p class="modal__hint">Press <kbd>Enter</kbd> to dive again</p>
+        <button class="btn btn--primary" data-action="restart">DELVE AGAIN</button>
+        <p class="modal__hint">${t(settings.lang, 'ui.pressEnter', { key: 'Enter' })}</p>
       </div>
     </div>
   `;
 }
 
+/** リザルトの見出しは HUD と揃えて英語のまま（→ i18n.ts の方針）。 */
 function resultRow(label: string, value: string): string {
   return `<div class="result__row"><dt>${label}</dt><dd>${value}</dd></div>`;
 }
@@ -79,7 +95,7 @@ function formatDuration(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
