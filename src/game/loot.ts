@@ -1,14 +1,33 @@
-import type { Dungeon, Entity, GameState, ItemId, ItemStack, Player, Vec2 } from '../core/types';
+import type {
+  Dungeon,
+  Entity,
+  EntityPayload,
+  GameState,
+  ItemId,
+  ItemStack,
+  Player,
+  Vec2,
+} from '../core/types';
 import type { Rng } from '../core/rng';
 import {
+  BOMB_DAMAGE,
+  BOMB_RADIUS,
   INVENTORY_SIZE,
   MAX_STACK,
   POTION_HEAL,
   SPAWN_MIN_DISTANCE,
-  potionsPerFloor,
+  chestsPerFloor,
+  equipmentDropChance,
+  goldPileAmount,
+  goldPilesPerFloor,
 } from '../core/constants';
 import { addLog, addLogOnce } from '../core/log';
-import { UNREACHABLE, bfsDistances, tileIndex } from './dungeon';
+import { ITEMS } from '../data/items';
+import { equipmentAt, equipmentScore, toEquipment } from '../data/equipment';
+import { UNREACHABLE, bfsDistances, chebyshev, tileAt, tileIndex } from './dungeon';
+import { equip } from './progression';
+import { gainGold } from './player';
+import { damageEnemy } from './combat';
 
 let nextEntityId = 0;
 
@@ -26,60 +45,156 @@ export function spawnEntities(
   floor: number,
   occupied: readonly Vec2[],
 ): Entity[] {
-  const dist = bfsDistances(dungeon, dungeon.start);
-  const taken = new Set(occupied.map((p) => tileIndex(dungeon, p.x, p.y)));
-
-  const candidates: Vec2[] = [];
-  for (let y = 0; y < dungeon.height; y++) {
-    for (let x = 0; x < dungeon.width; x++) {
-      const i = tileIndex(dungeon, x, y);
-      const d = dist[i] ?? UNREACHABLE;
-      if (d < SPAWN_MIN_DISTANCE) continue;
-      if (taken.has(i)) continue;
-      if (x === dungeon.stairs.x && y === dungeon.stairs.y) continue;
-      candidates.push({ x, y });
-    }
-  }
+  const candidates = placeableTiles(dungeon, occupied);
   rng.shuffle(candidates);
 
+  const payloads: EntityPayload[] = [];
+
+  for (const item of ITEMS) {
+    const count = item.perFloor(floor, rng.next());
+    for (let i = 0; i < count; i++) {
+      payloads.push({ type: 'item', itemId: item.id, count: 1 });
+    }
+  }
+  for (let i = 0; i < goldPilesPerFloor(rng.next()); i++) {
+    payloads.push({ type: 'gold', amount: goldPileAmount(floor, rng.next()) });
+  }
+  for (let i = 0; i < chestsPerFloor(rng.next()); i++) {
+    payloads.push({ type: 'chest', opened: false });
+  }
+  if (rng.chance(equipmentDropChance(floor))) {
+    payloads.push({ type: 'equipment', equipment: toEquipment(rng.pick(equipmentAt(floor))) });
+  }
+
   const entities: Entity[] = [];
-  const count = potionsPerFloor(floor);
-  for (let i = 0; i < count && i < candidates.length; i++) {
+  for (let i = 0; i < payloads.length && i < candidates.length; i++) {
+    const payload = payloads[i] as EntityPayload;
     entities.push({
       id: `entity-${nextEntityId++}`,
-      kind: 'item',
+      kind: payload.type,
       pos: { ...(candidates[i] as Vec2) },
-      payload: { type: 'item', itemId: 'potion', count: 1 },
+      payload,
     });
   }
   return entities;
 }
 
+function placeableTiles(dungeon: Dungeon, occupied: readonly Vec2[]): Vec2[] {
+  const dist = bfsDistances(dungeon, dungeon.start);
+  const taken = new Set(occupied.map((p) => tileIndex(dungeon, p.x, p.y)));
+
+  const tiles: Vec2[] = [];
+  for (let y = 0; y < dungeon.height; y++) {
+    for (let x = 0; x < dungeon.width; x++) {
+      const i = tileIndex(dungeon, x, y);
+      if ((dist[i] ?? UNREACHABLE) < SPAWN_MIN_DISTANCE) continue;
+      if (taken.has(i)) continue;
+      if (x === dungeon.stairs.x && y === dungeon.stairs.y) continue;
+      tiles.push({ x, y });
+    }
+  }
+  return tiles;
+}
+
 // --- 拾得 --------------------------------------------------------------------
 
-/** プレイヤーの足元にある物を拾う。移動のたびに呼ばれる。 */
+/** プレイヤーの足元にある物を処理する。移動のたびに呼ばれる。 */
 export function pickupAt(state: GameState, pos: Vec2): void {
   const index = state.entities.findIndex((e) => e.pos.x === pos.x && e.pos.y === pos.y);
   if (index === -1) return;
 
   const entity = state.entities[index] as Entity;
-  const { itemId, count } = entity.payload;
+  if (collect(state, entity)) state.entities.splice(index, 1);
+}
 
+/** @returns 床から取り除いてよいか */
+function collect(state: GameState, entity: Entity): boolean {
+  const payload = entity.payload;
+  switch (payload.type) {
+    case 'gold': {
+      const amount = gainGold(state, payload.amount);
+      addLog(state.log, 'log.pickupGold', { amount }, 'gold');
+      return true;
+    }
+    case 'item':
+      return collectItem(state, entity, payload.itemId, payload.count);
+    case 'equipment':
+      return collectEquipment(state, entity, payload);
+    case 'chest': {
+      state.stats.chestsOpened += 1;
+      addLog(state.log, 'log.openChest', {}, 'gold');
+      // 中身はその場で受け取る。受け取れなかった分（満杯・弱い装備）は
+      // 同じマスに残して拾い直せるようにする。
+      const reward: Entity = { ...rollChestReward(state), pos: { ...entity.pos } };
+      if (!collect(state, reward)) state.entities.push(reward);
+      return true;
+    }
+  }
+}
+
+function collectItem(state: GameState, entity: Entity, itemId: ItemId, count: number): boolean {
   const accepted = addToInventory(state.player, itemId, count);
   if (accepted === 0) {
     // 満杯なら床に残す。勝手に消えると「拾えなかった」ことに気づけない。
     // 同じマスに立ち続けても繰り返し積まないよう addLogOnce を使う。
     addLogOnce(state.log, 'log.inventoryFull', {}, 'bad');
-    return;
-  }
-
-  if (accepted < count) {
-    // 一部だけ入った分は床に残す
-    entity.payload.count = count - accepted;
-  } else {
-    state.entities.splice(index, 1);
+    return false;
   }
   addLog(state.log, 'log.pickup', { item: itemId, count: accepted }, 'gold');
+
+  if (accepted < count && entity.payload.type === 'item') {
+    entity.payload.count = count - accepted; // 入り切らなかった分は床に残す
+    return false;
+  }
+  return true;
+}
+
+/**
+ * 装備は「今のものより強ければ」自動で入れ替える。
+ *
+ * 常に入れ替えると、通り道に落ちていた弱い装備を踏んだだけで弱体化する。
+ * 拾わない選択を強いるのは判断ではなく、ただの理不尽。
+ * 入れ替えた場合、外した方はその場に落として拾い直せるようにする。
+ */
+function collectEquipment(
+  state: GameState,
+  entity: Entity,
+  payload: Extract<EntityPayload, { type: 'equipment' }>,
+): boolean {
+  const player = state.player;
+  const current = player.equipment[payload.equipment.slot];
+
+  if (equipmentScore(payload.equipment) <= equipmentScore(current)) {
+    addLogOnce(state.log, 'log.equipWorse', { name: payload.equipment.name }, 'info');
+    return false;
+  }
+
+  const removed = equip(player, payload.equipment);
+  addLog(state.log, 'log.equip', { name: payload.equipment.name }, 'good');
+
+  if (removed) {
+    // 外した装備は同じマスに置き直す。拾い直せる = 選び直せる。
+    entity.payload = { type: 'equipment', equipment: removed };
+    entity.kind = 'equipment';
+    return false;
+  }
+  return true;
+}
+
+function rollChestReward(state: GameState): Omit<Entity, 'pos'> {
+  const rng = state.rng;
+  const floor = state.floor;
+  const roll = rng.next();
+
+  let payload: EntityPayload;
+  if (roll < 0.45) {
+    payload = { type: 'gold', amount: goldPileAmount(floor, rng.next()) * 2 };
+  } else if (roll < 0.8) {
+    payload = { type: 'item', itemId: rng.pick(ITEMS).id, count: 1 };
+  } else {
+    payload = { type: 'equipment', equipment: toEquipment(rng.pick(equipmentAt(floor))) };
+  }
+  return { id: `entity-${nextEntityId++}`, kind: payload.type, payload };
 }
 
 /**
@@ -91,7 +206,6 @@ export function pickupAt(state: GameState, pos: Vec2): void {
 function addToInventory(player: Player, itemId: ItemId, count: number): number {
   let remaining = count;
 
-  // まず既存のスタックの空き分に詰める
   for (const slot of player.inventory) {
     if (remaining === 0) break;
     if (slot?.itemId !== itemId) continue;
@@ -102,7 +216,6 @@ function addToInventory(player: Player, itemId: ItemId, count: number): number {
     remaining -= put;
   }
 
-  // 残りは空きスロットへ
   for (let i = 0; i < player.inventory.length && remaining > 0; i++) {
     if (player.inventory[i] !== null) continue;
     const put = Math.min(MAX_STACK, remaining);
@@ -153,11 +266,51 @@ function applyItem(state: GameState, itemId: ItemId): boolean {
       addLog(state.log, 'log.usePotion', { healed }, 'good');
       return true;
     }
+    case 'bomb':
+      return detonate(state);
     default:
       // 新しいアイテムを ItemId に足したらここで型エラーになる。
       // 分岐を書き忘れたまま「飲むと回復する」挙動を引き継がせないための番人。
       return assertNever(itemId);
   }
+}
+
+/**
+ * 周囲の敵にダメージを与え、壁を壊す。
+ * 敵にも壁にも当たらなければ何も起きないので、消費もしない。
+ */
+function detonate(state: GameState): boolean {
+  const origin = state.player.pos;
+  const dungeon = state.dungeon;
+
+  let hits = 0;
+  // 直接 hp を引かずに damageEnemy を通す。爆殺でも経験値とゴールドが入る。
+  for (const enemy of [...state.enemies]) {
+    if (enemy.hp <= 0) continue;
+    if (chebyshev(enemy.pos, origin) > BOMB_RADIUS) continue;
+    damageEnemy(state, enemy, BOMB_DAMAGE);
+    hits += 1;
+  }
+
+  let broken = 0;
+  for (let dy = -BOMB_RADIUS; dy <= BOMB_RADIUS; dy++) {
+    for (let dx = -BOMB_RADIUS; dx <= BOMB_RADIUS; dx++) {
+      const x = origin.x + dx;
+      const y = origin.y + dy;
+      // 外周は壊さない。壊すとグリッドの外へ抜けられてしまう。
+      if (x <= 0 || y <= 0 || x >= dungeon.width - 1 || y >= dungeon.height - 1) continue;
+      if (tileAt(dungeon, x, y) !== 'wall') continue;
+      dungeon.tiles[tileIndex(dungeon, x, y)] = 'floor';
+      broken += 1;
+    }
+  }
+
+  if (hits === 0 && broken === 0) {
+    addLogOnce(state.log, 'log.bombDud', {}, 'info');
+    return false;
+  }
+  addLog(state.log, 'log.useBomb', { hits, broken }, 'good');
+  return true;
 }
 
 function assertNever(value: never): never {

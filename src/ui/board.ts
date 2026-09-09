@@ -2,7 +2,8 @@ import type { Actor, GameState } from '../core/types';
 import type { Settings } from '../storage/settings';
 import { tileAt, tileIndex } from '../game/dungeon';
 import { spriteSymbol } from './pixel';
-import { allSprites, enemySpriteId, itemSpriteId, playerSpriteId, tileSpriteId } from './sprites';
+import { allSprites, enemySpriteId, entitySpriteId, playerSpriteId, tileSpriteId } from './sprites';
+import { hasPerk } from '../game/progression';
 import { t } from './i18n';
 
 /**
@@ -53,11 +54,17 @@ export function renderBoard(state: GameState, settings: Settings): string {
     }
   }
 
-  // 床に落ちている物。見えているマスのみ（敵より先に描いて下に置く）
+  // 床に落ちている物。敵より先に描いて下に置く。
+  // Treasure Sense を持っていると、宝箱とゴールドだけは視界の外でも探索済みなら見える。
+  const senses = hasPerk(state.player, 'treasureSense');
   for (const entity of state.entities) {
-    if (!d.visible[tileIndex(d, entity.pos.x, entity.pos.y)]) continue;
+    const i = tileIndex(d, entity.pos.x, entity.pos.y);
+    const treasure = entity.payload.type === 'chest' || entity.payload.type === 'gold';
+    const sensed = senses && treasure && d.explored[i];
+    if (!d.visible[i] && !sensed) continue;
+    const dim = d.visible[i] ? '' : ' tile--dim';
     parts.push(
-      `<use class="entity" href="#${itemSpriteId(entity.payload.itemId)}"` +
+      `<use class="entity${dim}" href="#${entitySpriteId(entity)}"` +
         ` x="${entity.pos.x}" y="${entity.pos.y}" width="1" height="1"/>`,
     );
   }

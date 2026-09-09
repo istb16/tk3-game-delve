@@ -1,5 +1,5 @@
 import type { Enemy, GameState } from '../core/types';
-import { MIN_DAMAGE } from '../core/constants';
+import { CRIT_MULTIPLIER, MIN_DAMAGE } from '../core/constants';
 import { addLog } from '../core/log';
 import { gainExp, gainGold } from './player';
 
@@ -12,20 +12,64 @@ export function computeDamage(attack: number, defense: number): number {
 }
 
 export function playerAttack(state: GameState, target: Enemy): void {
-  const damage = computeDamage(state.player.attack, target.defense);
-  target.hp -= damage;
-  addLog(state.log, 'log.playerHit', { name: target.name, damage }, 'info');
+  const player = state.player;
+  let damage = computeDamage(player.attack, target.defense);
 
+  const critical = state.rng.chance(player.critChance);
+  if (critical) damage = Math.floor(damage * CRIT_MULTIPLIER);
+
+  damageEnemy(state, target, damage);
+  addLog(
+    state.log,
+    critical ? 'log.critical' : 'log.playerHit',
+    { name: target.name, damage },
+    critical ? 'good' : 'info',
+  );
+
+  // 吸収は与えたダメージに比例する。倒しきった分も含めて数える
+  // （倒した瞬間だけ吸えないのは直感に反する）。
+  if (player.lifesteal > 0) {
+    const healed = Math.min(
+      player.maxHp - player.hp,
+      Math.max(1, Math.floor(damage * player.lifesteal)),
+    );
+    if (healed > 0) {
+      player.hp += healed;
+      addLog(state.log, 'log.lifesteal', { healed }, 'good');
+    }
+  }
+}
+
+/**
+ * 敵に確定ダメージを与え、倒したら報酬まで処理する。
+ * 攻撃・爆弾・反射など、敵の HP を減らす経路はすべてここを通す。
+ */
+export function damageEnemy(state: GameState, target: Enemy, damage: number): void {
+  if (target.hp <= 0) return;
+  target.hp -= damage;
   if (target.hp <= 0) killEnemy(state, target);
 }
 
 export function enemyAttack(state: GameState, attacker: Enemy): void {
-  const damage = computeDamage(attacker.attack, state.player.defense);
-  state.player.hp -= damage;
+  const player = state.player;
+
+  if (player.evasion > 0 && state.rng.chance(player.evasion)) {
+    addLog(state.log, 'log.evaded', { name: attacker.name }, 'good');
+    return;
+  }
+
+  const damage = computeDamage(attacker.attack, player.defense);
+  player.hp -= damage;
   addLog(state.log, 'log.enemyHit', { name: attacker.name, damage }, 'bad');
 
-  if (state.player.hp <= 0) {
-    state.player.hp = 0;
+  // 反射は被弾が成立したときだけ。回避したのに棘が刺さるのはおかしい。
+  if (player.thorns > 0 && attacker.hp > 0) {
+    damageEnemy(state, attacker, player.thorns);
+    addLog(state.log, 'log.thorns', { name: attacker.name, damage: player.thorns }, 'info');
+  }
+
+  if (player.hp <= 0) {
+    player.hp = 0;
     state.phase = 'dead';
     addLog(state.log, 'log.died', {}, 'system');
   }

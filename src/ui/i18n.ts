@@ -27,11 +27,49 @@ export type MessageKey =
   | 'log.emptySlot'
   | 'log.alreadyFull'
   | 'log.descendHeal'
+  | 'log.critical'
+  | 'log.evaded'
+  | 'log.lifesteal'
+  | 'log.thorns'
+  | 'log.pickupGold'
+  | 'log.openChest'
+  | 'log.equip'
+  | 'log.equipWorse'
+  | 'log.useBomb'
+  | 'log.bombDud'
+  | 'log.perkTaken'
+  | 'log.newBest'
   // UI
   | 'ui.tagline'
   | 'ui.log'
   | 'ui.items'
+  | 'ui.equipment'
+  | 'ui.perks'
+  | 'ui.empty'
+  | 'ui.levelUp'
+  | 'ui.choosePerk'
+  | 'ui.score'
+  | 'ui.best'
+  | 'ui.newBest'
   | 'item.potion'
+  | 'item.bomb'
+  | 'slot.weapon'
+  | 'slot.armor'
+  | 'slot.ring'
+  | 'perk.sharpened'
+  | 'perk.vitality'
+  | 'perk.deadlyAim'
+  | 'perk.ironhide'
+  | 'perk.lifesteal'
+  | 'perk.treasureSense'
+  | 'perk.swiftStep'
+  | 'perkDesc.sharpened'
+  | 'perkDesc.vitality'
+  | 'perkDesc.deadlyAim'
+  | 'perkDesc.ironhide'
+  | 'perkDesc.lifesteal'
+  | 'perkDesc.treasureSense'
+  | 'perkDesc.swiftStep'
   | 'aria.useItem'
   | 'ui.move'
   | 'ui.motto'
@@ -65,6 +103,45 @@ const EN: Record<MessageKey, string> = {
   'log.emptySlot': 'Slot {slot} is empty.',
   'log.alreadyFull': 'You are already at full health.',
   'log.descendHeal': 'You catch your breath. (+{healed} HP)',
+  'log.critical': 'CRITICAL! You hit {name} for {damage}.',
+  'log.evaded': 'You dodge {name}.',
+  'log.lifesteal': 'You drain {healed} HP.',
+  'log.thorns': 'Thorns bite {name} for {damage}.',
+  'log.pickupGold': 'Picked up {amount} gold.',
+  'log.openChest': 'You open the chest.',
+  'log.equip': 'You equip {name}.',
+  'log.equipWorse': '{name} is worse than what you carry.',
+  'log.useBomb': 'The bomb blasts {hits} enemies and {broken} walls.',
+  'log.bombDud': 'Nothing here to blow up.',
+  'log.perkTaken': 'You gain {perk}.',
+  'log.newBest': 'NEW BEST! FLOOR {floor}',
+
+  'ui.equipment': 'EQUIPMENT',
+  'ui.perks': 'PERKS',
+  'ui.empty': 'empty',
+  'ui.levelUp': 'LEVEL UP',
+  'ui.choosePerk': 'You are now LV {level}. Choose one.',
+  'ui.score': 'SCORE',
+  'ui.best': 'BEST',
+  'ui.newBest': 'NEW BEST',
+  'item.bomb': 'Bomb',
+  'slot.weapon': 'Weapon',
+  'slot.armor': 'Armor',
+  'slot.ring': 'Ring',
+  'perk.sharpened': 'Sharpened',
+  'perk.vitality': 'Vitality',
+  'perk.deadlyAim': 'Deadly Aim',
+  'perk.ironhide': 'Ironhide',
+  'perk.lifesteal': 'Lifesteal',
+  'perk.treasureSense': 'Treasure Sense',
+  'perk.swiftStep': 'Swift Step',
+  'perkDesc.sharpened': 'Attack +10%',
+  'perkDesc.vitality': 'Max HP +15, heal to full',
+  'perkDesc.deadlyAim': 'Critical +10%',
+  'perkDesc.ironhide': 'Defense +2',
+  'perkDesc.lifesteal': 'Drain 8% of damage dealt',
+  'perkDesc.treasureSense': 'Sense chests and gold you have seen',
+  'perkDesc.swiftStep': '25% of steps cost no turn',
 
   'ui.tagline': 'Go deeper. Survive longer.',
   'ui.log': 'LOG',
@@ -102,6 +179,45 @@ const JA: Record<MessageKey, string> = {
   'log.emptySlot': 'スロット {slot} は空だ。',
   'log.alreadyFull': 'HP は満タンだ。',
   'log.descendHeal': '一息ついた。(+{healed} HP)',
+  'log.critical': 'かいしんの一撃! {name} に {damage} のダメージ。',
+  'log.evaded': '{name} の攻撃をかわした。',
+  'log.lifesteal': 'HP を {healed} 吸収した。',
+  'log.thorns': '棘が {name} に {damage} のダメージ。',
+  'log.pickupGold': 'ゴールドを {amount} 手に入れた。',
+  'log.openChest': '宝箱を開けた。',
+  'log.equip': '{name} を装備した。',
+  'log.equipWorse': '{name} は今の装備より弱い。',
+  'log.useBomb': '爆風が敵 {hits} 体と壁 {broken} 枚を巻き込んだ。',
+  'log.bombDud': 'ここで爆破しても何も起きない。',
+  'log.perkTaken': '{perk} を習得した。',
+  'log.newBest': '自己ベスト更新! FLOOR {floor}',
+
+  'ui.equipment': 'EQUIPMENT',
+  'ui.perks': 'PERKS',
+  'ui.empty': 'なし',
+  'ui.levelUp': 'LEVEL UP',
+  'ui.choosePerk': 'LV {level} になった。1つ選べ。',
+  'ui.score': 'SCORE',
+  'ui.best': 'BEST',
+  'ui.newBest': '自己ベスト',
+  'item.bomb': 'Bomb',
+  'slot.weapon': '武器',
+  'slot.armor': '防具',
+  'slot.ring': '指輪',
+  'perk.sharpened': 'Sharpened',
+  'perk.vitality': 'Vitality',
+  'perk.deadlyAim': 'Deadly Aim',
+  'perk.ironhide': 'Ironhide',
+  'perk.lifesteal': 'Lifesteal',
+  'perk.treasureSense': 'Treasure Sense',
+  'perk.swiftStep': 'Swift Step',
+  'perkDesc.sharpened': '攻撃力 +10%',
+  'perkDesc.vitality': '最大HP +15、全回復',
+  'perkDesc.deadlyAim': 'クリティカル率 +10%',
+  'perkDesc.ironhide': '防御力 +2',
+  'perkDesc.lifesteal': '与ダメージの 8% を吸収',
+  'perkDesc.treasureSense': '一度見た宝箱とゴールドを表示',
+  'perkDesc.swiftStep': '25% の確率で移動がターンを消費しない',
 
   'ui.tagline': 'より深く。より長く生き延びろ。',
   'ui.log': 'LOG',

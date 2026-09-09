@@ -12,7 +12,7 @@ export type Dir = 'up' | 'down' | 'left' | 'right';
 export type TileKind = 'wall' | 'floor' | 'stairs';
 
 /** phase は「モーダル表示」と「移動入力を受け付けるか」を兼ねる。 */
-export type Phase = 'playing' | 'dead';
+export type Phase = 'playing' | 'levelup' | 'dead';
 
 // --- ダンジョン --------------------------------------------------------------
 
@@ -47,23 +47,78 @@ export interface Actor {
 
 // --- アイテム ----------------------------------------------------------------
 
-export type ItemId = 'potion';
+export type ItemId = 'potion' | 'bomb';
 
 export interface ItemStack {
   itemId: ItemId;
   count: number;
 }
 
+// --- 装備 --------------------------------------------------------------------
+
+export type Slot = 'weapon' | 'armor' | 'ring';
+
+export type EquipmentId =
+  | 'rustyDagger' | 'ironSword' | 'flameBlade' | 'vampireFang' | 'assassinKris' | 'wardensMaul'
+  | 'leatherVest' | 'chainMail' | 'thornPlate' | 'shadowCloak'
+  | 'ringOfVigor' | 'ringOfFury' | 'ringOfFortune' | 'ringOfInsight';
+
+export type Rarity = 'common' | 'rare' | 'epic';
+
+/**
+ * ステータス補正。装備とパークが共通で使う。
+ * 加算（attack）と乗算（attackPct）を分け、乗算は加算をすべて足した後に掛ける。
+ */
+export interface StatMods {
+  attack?: number;
+  attackPct?: number;
+  defense?: number;
+  maxHp?: number;
+  /** クリティカル率の加算（0..1） */
+  crit?: number;
+  /** 回避率の加算（0..1） */
+  evasion?: number;
+  /** 与ダメージのうち HP として吸収する割合（0..1） */
+  lifesteal?: number;
+  /** 被弾時に攻撃者へ返す固定ダメージ */
+  thorns?: number;
+  goldPct?: number;
+  expPct?: number;
+}
+
+/** 装備の特殊効果。null 以外で未実装のものはドロップ候補から外す。 */
+export type EffectId = 'burn' | 'slow';
+
+export interface Equipment {
+  id: EquipmentId;
+  name: string;
+  slot: Slot;
+  rarity: Rarity;
+  mods: StatMods;
+}
+
+// --- パーク ------------------------------------------------------------------
+
+export type PerkId =
+  | 'sharpened' | 'vitality' | 'deadlyAim' | 'ironhide'
+  | 'lifesteal' | 'treasureSense' | 'swiftStep';
+
 // --- 床のオブジェクト --------------------------------------------------------
 
-export type EntityKind = 'item';
+export type EntityKind = 'item' | 'gold' | 'equipment' | 'chest';
 
 /** payload を判別可能ユニオンにして、kind と中身の不整合を型で防ぐ。 */
+export type EntityPayload =
+  | { type: 'item'; itemId: ItemId; count: number }
+  | { type: 'gold'; amount: number }
+  | { type: 'equipment'; equipment: Equipment }
+  | { type: 'chest'; opened: boolean };
+
 export interface Entity {
   id: string;
   kind: EntityKind;
   pos: Vec2;
-  payload: { type: 'item'; itemId: ItemId; count: number };
+  payload: EntityPayload;
 }
 
 export interface Player extends Actor {
@@ -74,6 +129,17 @@ export interface Player extends Actor {
   gold: number;
   /** 固定長 INVENTORY_SIZE。null は空きスロット。 */
   inventory: (ItemStack | null)[];
+  equipment: Record<Slot, Equipment | null>;
+  /** 取得順。同じパークを重ねて取れる。 */
+  perks: PerkId[];
+
+  // --- 装備とパークから毎回引き直す派生値（progression.recalcStats が唯一の書き手） ---
+  critChance: number;
+  evasion: number;
+  lifesteal: number;
+  thorns: number;
+  goldPct: number;
+  expPct: number;
 }
 
 export type EnemyKind = 'rat' | 'goblin' | 'skeleton' | 'bat' | 'slime' | 'warden' | 'boss';
@@ -114,7 +180,19 @@ export type LogKey =
   | 'log.usePotion'
   | 'log.emptySlot'
   | 'log.alreadyFull'
-  | 'log.descendHeal';
+  | 'log.descendHeal'
+  | 'log.critical'
+  | 'log.evaded'
+  | 'log.lifesteal'
+  | 'log.thorns'
+  | 'log.pickupGold'
+  | 'log.openChest'
+  | 'log.equip'
+  | 'log.equipWorse'
+  | 'log.useBomb'
+  | 'log.bombDud'
+  | 'log.perkTaken'
+  | 'log.newBest';
 
 export interface LogEntry {
   id: number;
@@ -131,6 +209,7 @@ export interface RunStats {
   kills: number;
   goldEarned: number;
   deepestFloor: number;
+  chestsOpened: number;
 }
 
 // --- 入力の意図 --------------------------------------------------------------
@@ -143,7 +222,17 @@ export type Intent =
   | { type: 'move'; dir: Dir }
   | { type: 'wait' }
   | { type: 'useItem'; slot: number }
+  /** レベルアップ等の選択肢を選ぶ */
+  | { type: 'choose'; index: number }
   | { type: 'restart' };
+
+// --- 選択待ち ----------------------------------------------------------------
+
+/**
+ * レベルアップとランダムイベントは「選択肢を出して1つ選ばせる」という同じ形なので、
+ * 1つの型にまとめて UI を共通化する。イベントは Phase 3。
+ */
+export type PendingChoice = { kind: 'levelup'; level: number; options: PerkId[] };
 
 // --- ゲーム状態 --------------------------------------------------------------
 
@@ -159,6 +248,11 @@ export interface GameState {
   enemies: Enemy[];
   /** 現在フロアの床に落ちている物 */
   entities: Entity[];
+  /**
+   * 選択待ちの列。1ターンで複数回レベルアップすることがあるため配列で持つ。
+   * 空でなく生存中なら phase は 'levelup' になり、先頭を表示する。
+   */
+  pendingChoices: PendingChoice[];
   log: LogEntry[];
   stats: RunStats;
 }

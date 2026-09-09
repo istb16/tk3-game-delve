@@ -34,14 +34,12 @@ export const LEVEL_UP_GAIN = {
 /**
  * レベルアップ時の回復量（最大HPに対する割合）。
  *
- * Phase 2 でポーションが入ったら 0.4 に下げる。全回復のままだと強力すぎる
- * 回復資源になり、「今使うか取っておくか」の判断が消えるため（docs/03 §3.1）。
- *
- * ただし Phase 1 には回復手段が他に一切存在しないため、ここを 0.4 にすると
- * HP が一方通行で減り続け、3階前後で必ず尽きる（実測値は docs/07 §7.8）。
- * ポーションが入るまでは全回復とする。
+ * 全回復にすると強力すぎる回復資源になり、ポーションの価値と
+ * 「今使うか取っておくか」の判断が消える（docs/03 §3.1）。
+ * Phase 1 は回復手段が他になかったため全回復にしていたが、
+ * Phase 2 でポーション・爆弾・宝箱が入ったので設計値どおりに戻す。
  */
-export const LEVEL_UP_HEAL = 1.0;
+export const LEVEL_UP_HEAL = 0.4;
 
 /** インベントリのスロット数。数字キー 1-8 に対応する。 */
 export const INVENTORY_SIZE = 8;
@@ -67,12 +65,48 @@ export const POTION_HEAL = 0.4;
  */
 export const DESCEND_HEAL = 0.2;
 
-/** 1フロアに落ちているポーションの数 */
-export function potionsPerFloor(floor: number): number {
-  // 深いほどわずかに増やすが、敵の伸びには追いつかせない。
-  // 「1本で取り返せる被害の割合」が深度とともに下がっていくのが狙い。
-  return floor >= 10 ? 3 : 2;
+/** 1フロアに置く宝箱・ゴールドの数 */
+export function chestsPerFloor(roll: number): number {
+  return 1 + Math.floor(roll * 2); // 1..2
 }
+
+export function goldPilesPerFloor(roll: number): number {
+  return 2 + Math.floor(roll * 3); // 2..4
+}
+
+/** 装備が落ちている確率。深いほど上がるが 0.8 で頭打ち。 */
+export function equipmentDropChance(floor: number): number {
+  return Math.min(0.35 + floor * 0.02, 0.8);
+}
+
+/** ゴールドの1山あたりの量 */
+export function goldPileAmount(floor: number, roll: number): number {
+  return Math.floor((5 + roll * 10) * (1 + (floor - 1) * 0.15));
+}
+
+/** レベルアップ時に提示するパークの数 */
+export const PERK_CHOICES = 3;
+
+/** プレイヤーのクリティカル基礎率。敵は 0（docs/03 §3.2）。 */
+export const BASE_CRIT = 0.05;
+
+/** クリティカル時のダメージ倍率 */
+export const CRIT_MULTIPLIER = 1.8;
+
+/** 爆弾の威力と、壁を壊す範囲（チェビシェフ距離） */
+export const BOMB_DAMAGE = 20;
+export const BOMB_RADIUS = 1;
+
+/** スコアの重み（docs/03 §3.8） */
+export const SCORE_WEIGHT = {
+  floor: 1000,
+  kill: 50,
+  gold: 1,
+  level: 200,
+} as const;
+
+/** Swift Step: 移動がターンを消費しない確率 */
+export const SWIFT_STEP_CHANCE = 0.25;
 
 /** ダメージの下限。0 を許すと「まったく通らない」詰みが発生する。 */
 export const MIN_DAMAGE = 1;
@@ -110,17 +144,25 @@ export function expToNextLevel(level: number): number {
  * 防御力の係数を最も小さくするのが要点。減算式ダメージでは敵防御が伸びすぎると
  * TTK（倒すのに要するターン数）が発散し、「固いだけの敵を延々殴る」退屈な戦闘になる。
  *
- * この値は Phase 1（装備・パークなし）向け。プレイヤーの強さの源が増えたら
- * 必ず `node tools/difficulty-model.mjs` で再検算すること（docs/07 §7.3）。
+ * HP と攻撃力に二次の項を入れているのは、装備とパークでプレイヤーの伸びが
+ * 加速するため。線形だけで合わせると、序盤が厳しく深部が緩いという逆S字になる
+ * （実測では中央値9・最深42階まで散った）。
+ *
+ * この値は Phase 2（装備・パークあり）向け。プレイヤーの強さの源が増えたら
+ * 必ず再検算すること（docs/07 §7.3）。Phase 1 の値（0.10 / 0.07 / 0.04）のままだと、
+ * 防具と Ironhide でプレイヤーの防御力が敵の攻撃力を追い越し、
+ * 被ダメージが下限 1 に張り付いて事実上不死になる。
  */
 export function hpScale(floor: number): number {
-  return 1 + (floor - 1) * 0.1;
+  const d = floor - 1;
+  return 1 + d * 0.19 + d * d * 0.011;
 }
 
 export function atkScale(floor: number): number {
-  return 1 + (floor - 1) * 0.07;
+  const d = floor - 1;
+  return 1 + d * 0.11 + d * d * 0.007;
 }
 
 export function defScale(floor: number): number {
-  return 1 + (floor - 1) * 0.04;
+  return 1 + (floor - 1) * 0.05;
 }

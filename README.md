@@ -21,6 +21,8 @@ npm install && npm run build
 |---|---|
 | 移動 | `W` `A` `S` `D` / `↑` `↓` `←` `→` |
 | 待機 | `.` / `Space` |
+| アイテム使用 | `1` – `8` |
+| パーク選択（レベルアップ時） | `1` – `3` |
 | リスタート（死亡時） | `Enter` |
 
 画面上部で **表示言語（EN / JA）** と **方向キーの表示（AUTO / ON / OFF）** を切り替えられます。
@@ -32,9 +34,11 @@ npm install && npm run build
 ```bash
 npm run dev        # 開発サーバ (http://localhost:5273)
 npm run typecheck  # 型検査
+npm test           # 不変条件テスト（vitest）
 npm run build      # 単一HTML化 → dist/delve.html
 
 node tools/difficulty-model.mjs   # 難易度カーブの検算
+npm run measure 60                # 到達階層の実測
 ```
 
 ## 実装状況
@@ -43,7 +47,7 @@ node tools/difficulty-model.mjs   # 難易度カーブの検算
 
 - [x] Phase 1a — ランダムダンジョン / 移動 / 敵AI / 戦闘 / 階層 / 死亡 / リスタート
 - [x] Phase 1b — ドット絵スプライトと歩行アニメーション / favicon / EN・JA 切替 / 方向キー設定
-- [ ] Phase 2 — パーク選択 / 装備 / アイテム / localStorage / テスト導入
+- [x] Phase 2 — パーク選択 / 装備 / 宝箱 / スコアと記録 / vitest 導入
 - [ ] Phase 3 — 敵7種と特殊能力 / ボス / ランダムイベント / ステータス効果
 - [ ] Phase 4 — 実績 / 演出 / サウンド / モバイル最適化
 

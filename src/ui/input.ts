@@ -1,4 +1,4 @@
-import type { Dir, Intent } from '../core/types';
+import type { Dir, Intent, Phase } from '../core/types';
 
 /**
  * 生の入力イベントを Intent に変換する。
@@ -20,8 +20,21 @@ const KEY_TO_DIR: Record<string, Dir> = {
   D: 'right',
 };
 
-export function intentFromKey(event: KeyboardEvent): Intent | null {
+/**
+ * 数字キーの意味は phase で変わる。
+ * 選択待ちの間は選択肢、それ以外はインベントリのスロット。
+ * game/ 側に phase 分岐を持たせず、入力の解釈をここに閉じ込める。
+ */
+export function intentFromKey(event: KeyboardEvent, phase: Phase): Intent | null {
   if (event.ctrlKey || event.metaKey || event.altKey) return null;
+
+  if (phase === 'levelup') {
+    if (event.key >= '1' && event.key <= '9') {
+      return { type: 'choose', index: Number(event.key) - 1 };
+    }
+    // 選択待ちの間は移動も待機もできない
+    return null;
+  }
 
   const dir = KEY_TO_DIR[event.key];
   if (dir) return { type: 'move', dir };

@@ -9,6 +9,9 @@ import { intentFromDpad, intentFromKey } from './ui/input';
 import { installFavicon } from './ui/favicon';
 import type { DpadMode, Lang, Settings } from './storage/settings';
 import { loadSettings, saveSettings } from './storage/settings';
+import type { SaveData } from './storage/save';
+import { loadSave, recordRun } from './storage/save';
+import { addLog } from './core/log';
 
 const container = document.getElementById('app');
 if (!container) throw new Error('#app not found');
@@ -20,8 +23,13 @@ installFavicon();
 let settings: Settings = loadSettings();
 applySettings();
 
+let save: SaveData = loadSave();
 let state: GameState = createGame();
-render(root, state, settings);
+draw();
+
+function draw(): void {
+  render(root, state, { settings, save });
+}
 
 /**
  * 設定を DOM に反映する。
@@ -39,7 +47,7 @@ function updateSettings(patch: Partial<Settings>): void {
   settings = { ...settings, ...patch };
   saveSettings(settings);
   applySettings();
-  render(root, state, settings);
+  draw();
 }
 
 /**
@@ -71,6 +79,7 @@ function dispatch(intent: Intent): void {
     state = createGame();
     repeatBlocked = false;
   } else {
+    const wasAlive = state.phase !== 'dead';
     const hpBefore = state.player.hp;
     const floorBefore = state.floor;
     const seenBefore = visibleEnemyIds(state);
@@ -81,12 +90,22 @@ function dispatch(intent: Intent): void {
     const changedFloor = state.floor !== floorBefore;
     const newEnemyAppeared = [...visibleEnemyIds(state)].some((id) => !seenBefore.has(id));
     if (tookDamage || changedFloor || newEnemyAppeared) repeatBlocked = true;
+
+    // 記録の書き込みは死亡時の1回だけ。localStorage は同期処理なので、
+    // 毎ターン書くと入力の応答が鈍る。
+    if (wasAlive && state.phase === 'dead') {
+      const outcome = recordRun(save, state);
+      save = outcome.save;
+      if (outcome.newBestDepth) {
+        addLog(state.log, 'log.newBest', { floor: state.stats.deepestFloor }, 'system');
+      }
+    }
   }
-  render(root, state, settings);
+  draw();
 }
 
 window.addEventListener('keydown', (event) => {
-  const intent = intentFromKey(event);
+  const intent = intentFromKey(event, state.phase);
   if (!intent) return;
   event.preventDefault();
 
@@ -114,7 +133,9 @@ root.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
 
-  const button = target.closest('[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-use-slot]');
+  const button = target.closest(
+    '[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-use-slot], [data-choose]',
+  );
   if (!(button instanceof HTMLElement)) return;
 
   const lang = button.dataset['setLang'];
@@ -126,6 +147,12 @@ root.addEventListener('click', (event) => {
   const dpad = button.dataset['setDpad'];
   if (dpad === 'auto' || dpad === 'on' || dpad === 'off') {
     updateSettings({ dpad: dpad as DpadMode });
+    return;
+  }
+
+  const choose = button.dataset['choose'];
+  if (choose !== undefined) {
+    dispatch({ type: 'choose', index: Number(choose) });
     return;
   }
 

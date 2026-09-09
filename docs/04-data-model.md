@@ -93,22 +93,30 @@ interface Player extends Actor {
   exp: number;        // ✅
   nextExp: number;    // ✅ 次のレベルまでに必要な経験値
   gold: number;       // ✅
-  critChance: number; // 🔜 P2  0..1
+  critChance: number; // ✅ 0..1
   evasion: number;    // 🔜 P3  0..1
-  lifesteal: number;  // 🔜 P2  0..1
-  equipment: {        // 🔜 P2
+  lifesteal: number;  // ✅ 0..1
+  equipment: {        // ✅
     weapon: Equipment | null;
     armor: Equipment | null;
     ring: Equipment | null;
   };
   inventory: (ItemStack | null)[];  // ✅ 固定長 8。null は空きスロット
-  perks: PerkId[];                  // 🔜 P2 重複可。取得順に追加
+  perks: PerkId[];                  // ✅ 重複可。取得順に追加
 }
 ```
 
 **派生値の扱い**: `attack` などは「基礎値 + 装備 + パーク」の合成結果を**キャッシュした値**として持つ。
 装備変更・パーク取得・レベルアップの各時点で `recalcStats(player)` を呼んで再計算する。
 毎フレーム再計算しないのは、状態が変わるタイミングが離散的で明確だから。
+
+`recalcStats` は**累積加算せず、毎回レベルからゼロで組み立て直す**。
+「装備を外したときに補正を引き忘れる」という種類のバグが構造的に起きなくなる。
+これが player の派生値を書き換える唯一の場所（[`src/game/progression.ts`](../src/game/progression.ts)）。
+
+乗算補正（`attackPct`）は加算をすべて足した後に掛ける。順序を変えると
+装備の付け外しで値がずれる。また**切り捨てず四捨五入し、プラスの補正なら最低 +1 を保証する**
+（理由は [03 §3.6](03-game-design.md)）。
 
 ### Enemy
 
@@ -177,7 +185,7 @@ interface Entity {
 
 `payload` を判別可能ユニオンにすることで、`kind` と中身の不整合を型で防ぐ。
 
-## 4.6 装備とアイテム 🔜 P2
+## 4.6 装備とアイテム
 
 ```ts
 type Slot = 'weapon' | 'armor' | 'ring';
@@ -226,7 +234,7 @@ interface StatusEffect {
 
 毎ターン終了時に `turns` を減らし、0 で除去する。ダメージ系はその時点で適用する。
 
-## 4.8 選択待ち状態 🔜 P2
+## 4.8 選択待ち状態
 
 レベルアップとランダムイベントは、どちらも「選択肢を出して 1 つ選ばせる」という同じ形。
 UI を共通化するため 1 つの型にまとめる。
@@ -243,7 +251,13 @@ interface EventOption {
 }
 ```
 
-`pending !== null` の間は `phase` が `'levelup'` / `'event'` になり、移動入力を受け付けない。
+**列で持つのが要点。** 1ターンで2レベル上がることがあるので、
+選択を1つしか保持しない設計だと取りこぼす。
+`pendingChoices` が空でなく生存中なら `phase` は `'levelup'` になり、
+移動・待機・アイテム使用のいずれも受け付けない。
+
+選択待ちを開くのは**敵の行動まで終えてから**。レベルアップした瞬間に止めると、
+選択中に敵の攻撃だけが未解決で残り、閉じた直後にまとめて食らうことになる。
 
 ## 4.9 スプライト定義
 
@@ -287,7 +301,7 @@ interface RunStats {
   kills: number;        // ✅
   goldEarned: number;   // ✅
   deepestFloor: number; // ✅
-  chestsOpened: number; // 🔜 P2
+  chestsOpened: number; // ✅
 }
 ```
 
@@ -316,7 +330,7 @@ interface Settings {
 未定義の状態に落ちないようにするため、`LANGS.find(v => v === record.lang) ?? 既定値`
 のように照合してから採用する。
 
-### 記録 🔜 P2 `delve.save.v1`
+### 記録 ✅ `delve.save.v1`
 
 バージョンをキー名に含めることで、スキーマ変更時に旧データを壊さず無視できる。
 

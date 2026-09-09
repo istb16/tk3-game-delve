@@ -32,12 +32,14 @@ export function createGame(seed: number = randomSeed()): GameState {
     player,
     enemies,
     entities: spawnEntities(floorRng, dungeon, floor, enemies.map((e) => e.pos)),
+    pendingChoices: [],
     log: [],
     stats: {
       startedAt: Date.now(),
       kills: 0,
       goldEarned: 0,
       deepestFloor: floor,
+      chestsOpened: 0,
     },
   };
 
