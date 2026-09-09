@@ -22,7 +22,7 @@ GameState
 ├─ enemies: Enemy[]                 ✅ 現在フロアの敵
 ├─ log: LogEntry[]                  ✅ メッセージログ（末尾が最新）
 ├─ stats: RunStats                  ✅ このRunの集計
-├─ entities: Entity[]               🔜 P2 床に落ちている物
+├─ entities: Entity[]               ✅ 床に落ちている物
 └─ pending: PendingChoice | null    🔜 P2 レベルアップ/イベントの選択待ち
 ```
 
@@ -101,7 +101,7 @@ interface Player extends Actor {
     armor: Equipment | null;
     ring: Equipment | null;
   };
-  inventory: (ItemStack | null)[];  // 🔜 P2 固定長 8。null は空きスロット
+  inventory: (ItemStack | null)[];  // ✅ 固定長 8。null は空きスロット
   perks: PerkId[];                  // 🔜 P2 重複可。取得順に追加
 }
 ```
@@ -155,7 +155,9 @@ interface EnemyDef {
 > 十分に深いと全ての重みが 0 に潰れるため、その場合は `peakFloor` が最も深い敵に
 > フォールバックする。深度に上限がない設計なので、この退避は必須。
 
-## 4.5 床のオブジェクト 🔜 P2
+## 4.5 床のオブジェクト
+
+現在実装しているのは `item`（ポーション）のみ。残りは Phase 2 以降。
 
 ```ts
 type EntityKind = 'chest' | 'gold' | 'item' | 'equipment' | 'special';

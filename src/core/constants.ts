@@ -43,6 +43,28 @@ export const LEVEL_UP_GAIN = {
  */
 export const LEVEL_UP_HEAL = 1.0;
 
+/** インベントリのスロット数。数字キー 1-8 に対応する。 */
+export const INVENTORY_SIZE = 8;
+
+/** ポーションの回復量（最大HPに対する割合） */
+export const POTION_HEAL = 0.4;
+
+/**
+ * 階段を降りた時の回復量（最大HPに対する割合）。
+ *
+ * 「フロアを掃除して経験値を稼ぐか、傷が浅いうちに降りるか」の判断を作る。
+ * 深度が上がっても割合は変えない — 敵の与ダメージだけが伸びるので、
+ * 1回の降下で取り返せる被害の割合が自然に下がっていく（docs/07 §7.4 レバー4）。
+ */
+export const DESCEND_HEAL = 0.2;
+
+/** 1フロアに落ちているポーションの数 */
+export function potionsPerFloor(floor: number): number {
+  // 深いほどわずかに増やすが、敵の伸びには追いつかせない。
+  // 「1本で取り返せる被害の割合」が深度とともに下がっていくのが狙い。
+  return floor >= 10 ? 3 : 2;
+}
+
 /** ダメージの下限。0 を許すと「まったく通らない」詰みが発生する。 */
 export const MIN_DAMAGE = 1;
 
@@ -63,9 +85,14 @@ export const ENEMY_AGGRO_RANGE = 6;
 /** スポーン時にプレイヤーから最低限離す距離（開幕即戦闘を防ぐ） */
 export const SPAWN_MIN_DISTANCE = 4;
 
-/** レベル level から level+1 に必要な累計経験値 */
+/**
+ * レベル level から level+1 に必要な経験値。
+ *
+ * 係数 8（旧 10）。Phase 1 はレベルアップが唯一の恒久的な強化手段なので、
+ * ここが遅いと「深く潜るほど相対的に弱くなる」だけになる。
+ */
 export function expToNextLevel(level: number): number {
-  return (10 * level * (level + 1)) / 2;
+  return (8 * level * (level + 1)) / 2;
 }
 
 /**

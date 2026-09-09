@@ -45,12 +45,35 @@ export interface Actor {
   steps: number;
 }
 
+// --- アイテム ----------------------------------------------------------------
+
+export type ItemId = 'potion';
+
+export interface ItemStack {
+  itemId: ItemId;
+  count: number;
+}
+
+// --- 床のオブジェクト --------------------------------------------------------
+
+export type EntityKind = 'item';
+
+/** payload を判別可能ユニオンにして、kind と中身の不整合を型で防ぐ。 */
+export interface Entity {
+  id: string;
+  kind: EntityKind;
+  pos: Vec2;
+  payload: { type: 'item'; itemId: ItemId; count: number };
+}
+
 export interface Player extends Actor {
   level: number;
   exp: number;
   /** 次のレベルまでに必要な累計経験値 */
   nextExp: number;
   gold: number;
+  /** 固定長 INVENTORY_SIZE。null は空きスロット。 */
+  inventory: (ItemStack | null)[];
 }
 
 export type EnemyKind = 'rat' | 'goblin' | 'skeleton' | 'bat' | 'slime' | 'warden' | 'boss';
@@ -85,7 +108,12 @@ export type LogKey =
   | 'log.enemyHit'
   | 'log.enemyDies'
   | 'log.levelUp'
-  | 'log.died';
+  | 'log.died'
+  | 'log.pickup'
+  | 'log.inventoryFull'
+  | 'log.usePotion'
+  | 'log.emptySlot'
+  | 'log.descendHeal';
 
 export interface LogEntry {
   id: number;
@@ -113,6 +141,7 @@ export interface RunStats {
 export type Intent =
   | { type: 'move'; dir: Dir }
   | { type: 'wait' }
+  | { type: 'useItem'; slot: number }
   | { type: 'restart' };
 
 // --- ゲーム状態 --------------------------------------------------------------
@@ -127,6 +156,8 @@ export interface GameState {
   dungeon: Dungeon;
   player: Player;
   enemies: Enemy[];
+  /** 現在フロアの床に落ちている物 */
+  entities: Entity[];
   log: LogEntry[];
   stats: RunStats;
 }

@@ -1,6 +1,7 @@
 import type { GameState, Player, Vec2 } from '../core/types';
 import { LEVEL_UP_GAIN, LEVEL_UP_HEAL, PLAYER_BASE, expToNextLevel } from '../core/constants';
 import { addLog } from '../core/log';
+import { createInventory } from './loot';
 
 export function createPlayer(pos: Vec2): Player {
   return {
@@ -15,6 +16,7 @@ export function createPlayer(pos: Vec2): Player {
     nextExp: expToNextLevel(1),
     gold: 0,
     steps: 0,
+    inventory: createInventory(),
   };
 }
 

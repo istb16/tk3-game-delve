@@ -3,7 +3,9 @@ import { createRng, randomSeed } from '../core/rng';
 import { addLog } from '../core/log';
 import { generateDungeon, updateVisibility } from './dungeon';
 import { spawnEnemies } from './enemy';
+import { spawnEntities, healPlayer } from './loot';
 import { createPlayer } from './player';
+import { DESCEND_HEAL } from '../core/constants';
 
 /**
  * 新しい Run を開始する。
@@ -17,6 +19,7 @@ export function createGame(seed: number = randomSeed()): GameState {
   const floorRng = rng.fork(floor);
   const dungeon = generateDungeon(floorRng, floor);
   const player = createPlayer(dungeon.start);
+  const enemies = spawnEnemies(floorRng, dungeon, floor);
 
   updateVisibility(dungeon, player.pos);
 
@@ -27,7 +30,8 @@ export function createGame(seed: number = randomSeed()): GameState {
     floor,
     dungeon,
     player,
-    enemies: spawnEnemies(floorRng, dungeon, floor),
+    enemies,
+    entities: spawnEntities(floorRng, dungeon, floor, enemies.map((e) => e.pos)),
     log: [],
     stats: {
       startedAt: Date.now(),
@@ -53,7 +57,13 @@ export function descend(state: GameState): void {
   state.dungeon = dungeon;
   state.player.pos = { ...dungeon.start };
   state.enemies = spawnEnemies(floorRng, dungeon, state.floor);
+  state.entities = spawnEntities(floorRng, dungeon, state.floor, state.enemies.map((e) => e.pos));
 
   updateVisibility(dungeon, state.player.pos);
   addLog(state.log, 'log.floor', { floor: state.floor }, 'system');
+
+  // 降りると少し回復する。「フロアを掃除して稼ぐか、傷が浅いうちに降りるか」の
+  // 判断を作るための回復源（docs/07 §7.4 レバー4）。
+  const healed = healPlayer(state, DESCEND_HEAL);
+  if (healed > 0) addLog(state.log, 'log.descendHeal', { healed }, 'good');
 }

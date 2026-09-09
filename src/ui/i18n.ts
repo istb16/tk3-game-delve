@@ -21,9 +21,15 @@ export type MessageKey =
   | 'log.enemyDies'
   | 'log.levelUp'
   | 'log.died'
+  | 'log.pickup'
+  | 'log.inventoryFull'
+  | 'log.usePotion'
+  | 'log.emptySlot'
+  | 'log.descendHeal'
   // UI
   | 'ui.tagline'
   | 'ui.log'
+  | 'ui.items'
   | 'ui.move'
   | 'ui.motto'
   | 'ui.pressEnter'
@@ -50,9 +56,15 @@ const EN: Record<MessageKey, string> = {
   'log.enemyDies': '{name} dies. +{exp} EXP',
   'log.levelUp': 'LEVEL UP! You are now LV {level}. (+{healed} HP)',
   'log.died': 'You died.',
+  'log.pickup': 'Picked up a Potion.',
+  'log.inventoryFull': 'Your pack is full.',
+  'log.usePotion': 'You drink a Potion. (+{healed} HP)',
+  'log.emptySlot': 'Slot {slot} is empty.',
+  'log.descendHeal': 'You catch your breath. (+{healed} HP)',
 
   'ui.tagline': 'Go deeper. Survive longer.',
   'ui.log': 'LOG',
+  'ui.items': 'ITEMS',
   'ui.move': 'Move',
   'ui.motto': 'Explore. Fight. Descend.',
   'ui.pressEnter': 'Press {key} to dive again',
@@ -78,9 +90,15 @@ const JA: Record<MessageKey, string> = {
   'log.enemyDies': '{name} を倒した。+{exp} EXP',
   'log.levelUp': 'LEVEL UP! LV {level} になった。(+{healed} HP)',
   'log.died': '力尽きた。',
+  'log.pickup': 'Potion を拾った。',
+  'log.inventoryFull': '荷物がいっぱいだ。',
+  'log.usePotion': 'Potion を飲んだ。(+{healed} HP)',
+  'log.emptySlot': 'スロット {slot} は空だ。',
+  'log.descendHeal': '一息ついた。(+{healed} HP)',
 
   'ui.tagline': 'より深く。より長く生き延びろ。',
   'ui.log': 'LOG',
+  'ui.items': 'ITEMS',
   'ui.move': 'いどう',
   'ui.motto': '探索し、戦い、さらに深く。',
   'ui.pressEnter': '{key} でもう一度潜る',

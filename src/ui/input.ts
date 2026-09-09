@@ -26,6 +26,11 @@ export function intentFromKey(event: KeyboardEvent): Intent | null {
   const dir = KEY_TO_DIR[event.key];
   if (dir) return { type: 'move', dir };
 
+  // 数字キーでインベントリのスロットを使う
+  if (event.key >= '1' && event.key <= '8') {
+    return { type: 'useItem', slot: Number(event.key) - 1 };
+  }
+
   if (event.key === '.' || event.key === ' ') return { type: 'wait' };
   if (event.key === 'Enter') return { type: 'restart' };
   return null;

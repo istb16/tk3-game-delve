@@ -110,7 +110,7 @@ root.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
 
-  const button = target.closest('[data-dir], [data-action], [data-set-lang], [data-set-dpad]');
+  const button = target.closest('[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-use-slot]');
   if (!(button instanceof HTMLElement)) return;
 
   const lang = button.dataset['setLang'];
@@ -122,6 +122,12 @@ root.addEventListener('click', (event) => {
   const dpad = button.dataset['setDpad'];
   if (dpad === 'auto' || dpad === 'on' || dpad === 'off') {
     updateSettings({ dpad: dpad as DpadMode });
+    return;
+  }
+
+  const slot = button.dataset['useSlot'];
+  if (slot !== undefined) {
+    dispatch({ type: 'useItem', slot: Number(slot) });
     return;
   }
 

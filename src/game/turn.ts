@@ -2,6 +2,7 @@ import type { Dir, GameState, Intent, Vec2 } from '../core/types';
 import { isWalkable, tileAt, updateVisibility } from './dungeon';
 import { actEnemy, enemyAt } from './enemy';
 import { playerAttack } from './combat';
+import { pickupAt, useItem } from './loot';
 import { descend } from './state';
 
 const DIRECTIONS: Record<Dir, Vec2> = {
@@ -38,6 +39,8 @@ function resolvePlayerTurn(state: GameState, intent: Intent): boolean {
   switch (intent.type) {
     case 'wait':
       return true;
+    case 'useItem':
+      return useItem(state, intent.slot);
     case 'move':
       return resolveMove(state, DIRECTIONS[intent.dir]);
     case 'restart':
@@ -61,6 +64,8 @@ function resolveMove(state: GameState, step: Vec2): boolean {
   state.player.pos.x = nx;
   state.player.pos.y = ny;
   state.player.steps += 1; // 歩行アニメーションのフレーム番号の出典
+
+  pickupAt(state, state.player.pos);
 
   if (tileAt(state.dungeon, nx, ny) === 'stairs') descend(state);
   return true;

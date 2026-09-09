@@ -2,7 +2,7 @@ import type { Actor, GameState } from '../core/types';
 import type { Settings } from '../storage/settings';
 import { tileAt, tileIndex } from '../game/dungeon';
 import { spriteSymbol } from './pixel';
-import { allSprites, enemySpriteId, playerSpriteId, tileSpriteId } from './sprites';
+import { allSprites, enemySpriteId, itemSpriteId, playerSpriteId, tileSpriteId } from './sprites';
 import { t } from './i18n';
 
 /**
@@ -51,6 +51,15 @@ export function renderBoard(state: GameState, settings: Settings): string {
         `<use href="#${tileSpriteId(kind)}" x="${x}" y="${y}" width="1" height="1" class="tile${dim}"/>`,
       );
     }
+  }
+
+  // 床に落ちている物。見えているマスのみ（敵より先に描いて下に置く）
+  for (const entity of state.entities) {
+    if (!d.visible[tileIndex(d, entity.pos.x, entity.pos.y)]) continue;
+    parts.push(
+      `<use class="entity" href="#${itemSpriteId(entity.payload.itemId)}"` +
+        ` x="${entity.pos.x}" y="${entity.pos.y}" width="1" height="1"/>`,
+    );
   }
 
   // 敵は見えているマスにいるときだけ描く（暗闇の向こうの敵は見えない）

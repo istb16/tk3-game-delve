@@ -1,4 +1,4 @@
-import type { EnemyKind, TileKind } from '../core/types';
+import type { EnemyKind, ItemId, TileKind } from '../core/types';
 import type { SpriteDef } from './pixel';
 import { validateSprite } from './pixel';
 
@@ -269,6 +269,33 @@ const STAIRS: SpriteDef = {
   ],
 };
 
+// --- アイテム ----------------------------------------------------------------
+
+// 0:輪郭 1:液体 2:液体の影 3:ガラス 4:コルク
+const POTION: SpriteDef = {
+  palette: [OUTLINE, '#e5484d', '#a02830', '#c0d8e0', '#8a6a4a'],
+  frames: [
+    [
+      '................',
+      '................',
+      '................',
+      '......0440......',
+      '......0440......',
+      '.....033330.....',
+      '....03111130....',
+      '...0311111130...',
+      '...0311111130...',
+      '...0321111230...',
+      '...0322222230...',
+      '...0322222230...',
+      '....03222230....',
+      '.....000000.....',
+      '................',
+      '................',
+    ],
+  ],
+};
+
 // --- 名前との対応 ------------------------------------------------------------
 
 /**
@@ -283,6 +310,7 @@ const SPRITES: Readonly<Record<string, SpriteDef>> = {
   wall: WALL,
   floor: FLOOR,
   stairs: STAIRS,
+  potion: POTION,
 };
 
 /**
@@ -314,6 +342,10 @@ export function enemySpriteId(kind: EnemyKind, frame: number): string {
 
 export function tileSpriteId(kind: TileKind): string {
   return `sp-${kind}-0`;
+}
+
+export function itemSpriteId(itemId: ItemId): string {
+  return `sp-${itemId}-0`;
 }
 
 /** <defs> に入れるスプライトの一覧。同じ絵を二重に定義しない。 */
