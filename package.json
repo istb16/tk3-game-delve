@@ -1,0 +1,17 @@
+{
+  "name": "tk3-game-delve",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DELVE - Go deeper. Survive longer. A single-page roguelike dungeon crawler.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node build/inline.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

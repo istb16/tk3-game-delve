@@ -1,0 +1,59 @@
+import type { GameState } from '../core/types';
+import { createRng, randomSeed } from '../core/rng';
+import { addLog } from '../core/log';
+import { generateDungeon, updateVisibility } from './dungeon';
+import { spawnEnemies } from './enemy';
+import { createPlayer } from './player';
+
+/**
+ * 新しい Run を開始する。
+ * seed を渡せば同じダンジョンが再現される（バグ調査用）。
+ */
+export function createGame(seed: number = randomSeed()): GameState {
+  const rng = createRng(seed);
+  const floor = 1;
+  // フロア生成は seed と floor から決まる子 RNG を使う。
+  // ターン中の乱数消費に生成結果が影響されないようにするため。
+  const floorRng = rng.fork(floor);
+  const dungeon = generateDungeon(floorRng, floor);
+  const player = createPlayer(dungeon.start);
+
+  updateVisibility(dungeon, player.pos);
+
+  const state: GameState = {
+    phase: 'playing',
+    rng,
+    seed,
+    floor,
+    dungeon,
+    player,
+    enemies: spawnEnemies(floorRng, dungeon, floor),
+    log: [],
+    stats: {
+      startedAt: Date.now(),
+      kills: 0,
+      goldEarned: 0,
+      deepestFloor: floor,
+    },
+  };
+
+  addLog(state.log, 'You descend into the dark. Explore. Fight. Descend.', 'system');
+  addLog(state.log, `FLOOR ${floor}`, 'system');
+  return state;
+}
+
+/** 階段を降りて次のフロアへ。HP や成長は引き継ぐ。 */
+export function descend(state: GameState): void {
+  state.floor += 1;
+  state.stats.deepestFloor = Math.max(state.stats.deepestFloor, state.floor);
+
+  const floorRng = state.rng.fork(state.floor);
+  const dungeon = generateDungeon(floorRng, state.floor);
+
+  state.dungeon = dungeon;
+  state.player.pos = { ...dungeon.start };
+  state.enemies = spawnEnemies(floorRng, dungeon, state.floor);
+
+  updateVisibility(dungeon, state.player.pos);
+  addLog(state.log, `FLOOR ${state.floor}`, 'system');
+}
