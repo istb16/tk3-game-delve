@@ -295,9 +295,16 @@ function renderPerks(state: GameState, settings: Settings): string {
 }
 
 function renderLog(state: GameState, settings: Settings): string {
-  // 末尾が最新。新しいものを上に出すと視線が飛ぶので、下から積み上げる。
+  // 見た目は「下が最新」。視線を飛ばさないため、下から積み上げる。
+  //
+  // ただし **DOM は新しい順**で出し、向きは CSS の `flex-direction: column-reverse`
+  // で戻す（→ main.css の .log__list）。**片方だけ変えると並びが逆さになる。**
+  // こうするとスクロールの原点が下端になり、行が溢れていても最新が見えたまま
+  // 古い方へ遡れる。通常の順で積むと、render() が毎ターン innerHTML を
+  // 作り直すたびに scrollTop が 0 に戻り、一番読みたい行が毎回下に隠れる。
   const items = state.log
     .slice(-10)
+    .reverse()
     .map(
       (entry) =>
         `<li class="log__line log__line--${entry.tone}">${escapeHtml(

@@ -157,7 +157,7 @@ function dispatch(intent: Intent): void {
   // ログのパネルが隠れているときだけ、新しい行を右上に流す。
   // 判定は描画の**後**に行う。設定を変えた直後は、描き直すまで
   // DOM が古いタブのままで、見えている・いないを取り違える。
-  if (fresh.length > 0 && !isLogVisible(root)) showToasts(fresh, settings.lang);
+  if (fresh.length > 0 && !isLogVisible(root)) showToasts(fresh, settings.lang, root);
 }
 
 window.addEventListener('keydown', (event) => {

@@ -65,6 +65,29 @@ function stack(): HTMLElement {
   return element;
 }
 
+/** 盤面が見つからないときに使う上端。HUD の下に来る程度の保険。 */
+const FALLBACK_TOP = 140;
+
+/**
+ * 積み始める高さを盤面の上端に合わせる。
+ *
+ * HUD には絶対に重ねない。HP と GOLD が読めなくなっては、ログを見せるために
+ * 肝心の数字を潰したことになる。
+ *
+ * ここだけは**実寸を測る**。HUD の高さは中身（言語・折り返し）で変わる固定 px
+ * なのに対し、CSS で書ける `dvh` は画面の割合なので、短いビューポートでは
+ * 必ずどこかで追い越される（実測: 380x420 で 21dvh = 88px に対し HUD は 126px まで伸び、
+ * HP バーの上にトーストが乗った）。測るのは1ターンに1回で、
+ * 回転やリサイズは次のターンで拾い直される。
+ */
+function anchorTop(root: ParentNode): number {
+  const board = root.querySelector('.stage__board');
+  if (!board) return FALLBACK_TOP;
+  const top = board.getBoundingClientRect().top;
+  // 描画前などで潰れているときは保険側に倒す。0 を採ると HUD の上に出る。
+  return top > 0 ? top + 8 : FALLBACK_TOP;
+}
+
 /**
  * 1件を消す。表示時間切れと、上限による押し出しの両方がここを通る。
  *
@@ -80,11 +103,12 @@ function dismiss(element: HTMLElement, timer: number): void {
 }
 
 /** 新しいログを右上に流す。呼ぶ側が「ログが隠れているか」を決める。 */
-export function showToasts(entries: readonly LogEntry[], lang: Lang): void {
+export function showToasts(entries: readonly LogEntry[], lang: Lang, root: ParentNode): void {
   const lines = toastLines(entries, lang);
   if (lines.length === 0) return;
 
   const container = stack();
+  container.style.top = `${Math.round(anchorTop(root))}px`;
   for (const line of lines) {
     const element = document.createElement('div');
     element.className = `toast toast--${line.tone}`;
