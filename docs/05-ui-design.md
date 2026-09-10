@@ -668,3 +668,47 @@ localStorage キー: `delve.settings.v1`
 読み込み時は**既知の値だけを受け入れる**。手で書き換えられていても、
 JSON が壊れていても、localStorage 自体が使えなくても、既定値で必ず起動する
 （詳細は [04 §4.11](04-data-model.md)）。
+
+## 5.17 タイトルスプラッシュ
+
+起動直後に一度だけ、3 秒ほどタイトル面を被せる。
+
+```
+        [プレイヤーのドット絵]
+
+            D E L V E
+
+     Go deeper. Survive longer.
+
+     Created by istb16   v<バージョン>
+```
+
+- ドット絵 → タイトル → タグライン → クレジットの順に、CSS の `animation-delay` を
+  ずらして浮かび上がらせる。最後の行が出そろうのが約 1.5 秒で、残りは静止して見せる。
+- **3 秒で自動的に消える。それより早く任意のキーかクリックで消せる。**
+  スキップに使った入力は `window` の capture フェーズで止め、ゲームには渡さない
+  （盤面が見えないまま 1 歩動いていた、を起こさないため）。
+- タグラインは `ui.tagline` を再利用する。作者名とバージョンは表示言語に関係なく
+  同じ表記なので i18n を通さない。
+- 演出を切っている環境（`prefers-reduced-motion: reduce`）では最初から全部見えた
+  状態で出す。全体の上書きは `animation-duration` しか潰さないため、
+  スプラッシュ側で `animation-delay` を明示的に 0 に戻す必要がある。
+
+### なぜ `phase` を増やさないか
+
+スプラッシュはゲームルールではなく見せ方なので、`Phase` に `'splash'` を足すと
+`game/turn.ts` と `intentFromKey` にゲームと無関係な分岐が増える。
+DOM だけで完結させる（`src/ui/splash.ts`）。
+
+### なぜ `#app` の外に置くか
+
+`render()` は毎ターン `root.innerHTML` を作り直す。`#app` の中に入れると再描画で
+消えるか、消さないための可変状態を UI に抱えることになる（→ [02 §2.6](02-architecture.md)）。
+`document.body` 直下に生やし、消すのも DOM から取り除くだけにする。
+解除の経路は `dismiss()` 1 つだけに寄せる。
+
+### バージョン表記の出典
+
+`package.json` の `version` だけ。`vite.config.ts` の `define` が
+`__APP_VERSION__` に置き換える（→ [02 §2.7](02-architecture.md)）。
+ソースに直書きするとリリースのたびに片方だけ古くなる。

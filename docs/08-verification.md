@@ -34,6 +34,7 @@ tests/
 ├─ sprites.test.ts          ドット絵の形式・識別性・スプライト名の網羅
 ├─ regression.test.ts       一度本番に入った不具合の退行テスト
 ├─ storage.test.ts          設定と記録の永続化
+├─ splash.test.ts           タイトルスプラッシュの表示時間とバージョンの出典
 └─ difficulty.test.ts       到達階層の分布（受け入れ基準）
 ```
 

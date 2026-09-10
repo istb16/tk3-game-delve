@@ -13,6 +13,7 @@ import {
   resolveSlotTap,
 } from './ui/input';
 import { installFavicon } from './ui/favicon';
+import { installSplash } from './ui/splash';
 import type { DpadMode, Lang, PanelTab, Settings } from './storage/settings';
 import { loadSettings, saveSettings } from './storage/settings';
 import type { RunOutcome, SaveData } from './storage/save';
@@ -42,6 +43,9 @@ let lastRun: RunOutcome | null = null;
 let selectedSlot: number | null = null;
 let state: GameState = createGame();
 draw();
+// 盤面を描いた直後に被せる。同じ同期スクリプト内なので、最初のペイントの時点で
+// 既に上に載っている（盤面が一瞬見えることはない）。
+installSplash(settings.lang);
 
 function draw(): void {
   render(root, state, { settings, save, lastRun, selectedSlot });

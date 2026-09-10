@@ -185,6 +185,10 @@ npm run build   → tsc --noEmit  →  vite build  →  node build/inline.mjs
 **ランタイム依存はゼロ。** `typescript` / `vite` / `vitest` はビルド・テスト時のみの
 devDependency で、出荷される `dist/delve.html` には一切含まれない。
 
+アプリのバージョンは `vite.config.ts` の `define` が `__APP_VERSION__` を
+`package.json` の `version` に置き換える形で渡す（型宣言は `src/vite-env.d.ts`）。
+表示のために `'0.1.0'` をソースに書くと、リリースのたびに片方だけ古くなる。
+
 ビルド後の検証手順は [08 §8.5](08-verification.md)。
 
 ## 2.8 命名規約
