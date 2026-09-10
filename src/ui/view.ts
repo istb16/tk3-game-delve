@@ -61,6 +61,7 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
     </main>
     <footer class="hint">
       <span class="hint__keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> ${t(settings.lang, 'ui.move')}</span>
+      <span class="hint__keys"><kbd>1</kbd>-<kbd>8</kbd> ${t(settings.lang, 'ui.useItemHint')} / <kbd>Shift</kbd>+<kbd>1</kbd>-<kbd>8</kbd> ${t(settings.lang, 'ui.drop')}</span>
       <span>${t(settings.lang, 'ui.motto')}</span>
     </footer>
     ${renderDpad(settings)}
@@ -239,7 +240,13 @@ function renderItems(state: GameState, settings: Settings, selectedSlot: number 
         `<svg class="slot__icon" viewBox="0 0 1 1" shape-rendering="crispEdges" aria-hidden="true">` +
         `<use href="#${itemSpriteId(stack.itemId)}" width="1" height="1"/></svg>` +
         `<span class="slot__count${full ? ' slot__count--full' : ''}">${stack.count}</span>` +
-        `</button>${tip}</li>`
+        `</button>` +
+        // 捨てるボタン。ホバー・フォーカス・タッチ選択のときだけ出す。
+        // 常時出すとアイコンを覆って、何のアイテムか分からなくなる。
+        `<button class="slot__drop" data-drop-slot="${index}"` +
+        ` aria-label="${escapeHtml(t(settings.lang, 'aria.dropItem', { item: name }))}"` +
+        ` title="${escapeHtml(t(settings.lang, 'ui.drop'))}">&times;</button>` +
+        `${tip}</li>`
       );
     })
     .join('');

@@ -73,6 +73,8 @@ export type MessageKey =
   | 'log.hiddenRoom'
   | 'log.treasuryTaken'
   | 'log.achievement'
+  | 'log.dropped'
+  | 'log.dropNoRoom'
   // UI
   | 'ui.tagline'
   | 'ui.log'
@@ -100,6 +102,9 @@ export type MessageKey =
   | 'ui.tapAgain'
   | 'ui.stack'
   | 'ui.stackFull'
+  | 'ui.drop'
+  | 'ui.useItemHint'
+  | 'aria.dropItem'
   | 'item.scroll'
   | 'item.key'
   | 'perk.poisonAttack'
@@ -334,6 +339,11 @@ const EN: Record<MessageKey, string> = {
   'itemDesc.scroll': 'An unknown effect. Not always in your favour.',
   'itemDesc.key': 'Opens a locked chest.',
   'ui.stack': 'Held {count}/{max}',
+  'log.dropped': 'You drop {item}.',
+  'log.dropNoRoom': 'No room on the floor to drop it.',
+  'ui.drop': 'Drop',
+  'ui.useItemHint': 'Use',
+  'aria.dropItem': 'Drop {item}',
   'ui.stackFull': 'Held {count}/{max} (full)',
   'ui.tapAgain': 'tap again to use',
   'slot.weapon': 'Weapon',
@@ -530,6 +540,11 @@ const JA: Record<MessageKey, string> = {
   'itemDesc.scroll': '未知の効果。当たりとは限らない',
   'itemDesc.key': '施錠された宝箱を開ける',
   'ui.stack': '所持 {count}/{max}',
+  'log.dropped': '{item} を床に置いた。',
+  'log.dropNoRoom': '置ける場所がない。',
+  'ui.drop': '捨てる',
+  'ui.useItemHint': '使う',
+  'aria.dropItem': '{item} を捨てる',
   'ui.stackFull': '所持 {count}/{max}（上限）',
   'ui.tapAgain': 'もう一度タップで使用',
   'slot.weapon': '武器',

@@ -1,9 +1,17 @@
 import type { Dir, Intent, Phase } from '../core/types';
+import { INVENTORY_SIZE } from '../core/constants';
 
 /**
  * 生の入力イベントを Intent に変換する。
  * game/ 側がキーバインドやタッチ操作を知らずに済むよう、ここで吸収する。
  */
+
+/**
+ * 数字キーで指せるスロットの数。
+ * インベントリのスロット数から引く — 別の数値を書くと、
+ * スロットを増やしたときにキーだけ古いままになる。
+ */
+const INVENTORY_KEYS = INVENTORY_SIZE;
 
 const KEY_TO_DIR: Record<string, Dir> = {
   ArrowUp: 'up',
@@ -29,6 +37,7 @@ const KEY_TO_DIR: Record<string, Dir> = {
 export function isGameKey(event: KeyboardEvent): boolean {
   if (event.ctrlKey || event.metaKey || event.altKey) return false;
   if (KEY_TO_DIR[event.key]) return true;
+  if (/^Digit[0-9]$/.test(event.code)) return true;
   if (event.key >= '0' && event.key <= '9') return true;
   return event.key === '.' || event.key === ' ' || event.key === 'Enter';
 }
@@ -41,11 +50,28 @@ export function isGameKey(event: KeyboardEvent): boolean {
 export function intentFromKey(event: KeyboardEvent, phase: Phase): Intent | null {
   if (event.ctrlKey || event.metaKey || event.altKey) return null;
 
+  // 数字は event.key ではなく event.code で見る。
+  //
+  // どのキーがどの文字になるかはキーボード配列で変わる。
+  // AZERTY では数字段を素で押すと '&' や 'é' になり、数字を出すには Shift が要る。
+  // US でも Shift+1 は '!' になる。key で判定すると、配列によって
+  // アイテムが使えない・捨てられないという壊れ方をする。
+  const digit = /^Digit([0-9])$/.exec(event.code);
+  const slot = digit ? Number(digit[1]) : null;
+
   if (phase === 'choosing') {
-    if (event.key >= '1' && event.key <= '9') {
-      return { type: 'choose', index: Number(event.key) - 1 };
-    }
+    // Shift の有無は問わない。モーダルで番号を押した意図は同じ。
+    if (slot !== null && slot >= 1) return { type: 'choose', index: slot - 1 };
     // 選択待ちの間は移動も待機もできない
+    return null;
+  }
+
+  // Shift + 数字で捨てる
+  if (event.shiftKey) {
+    if (slot !== null && slot >= 1 && slot <= INVENTORY_KEYS) {
+      return { type: 'dropItem', slot: slot - 1 };
+    }
+    // Shift + その他は何もしない（大文字の WASD で意図せず動かないように）
     return null;
   }
 
@@ -53,14 +79,15 @@ export function intentFromKey(event: KeyboardEvent, phase: Phase): Intent | null
   if (dir) return { type: 'move', dir };
 
   // 数字キーでインベントリのスロットを使う
-  if (event.key >= '1' && event.key <= '8') {
-    return { type: 'useItem', slot: Number(event.key) - 1 };
+  if (slot !== null && slot >= 1 && slot <= INVENTORY_KEYS) {
+    return { type: 'useItem', slot: slot - 1 };
   }
 
   if (event.key === '.' || event.key === ' ') return { type: 'wait' };
   if (event.key === 'Enter') return { type: 'restart' };
   return null;
 }
+
 
 /**
  * スロットを押したときの解決。

@@ -3,7 +3,7 @@ import { SWIFT_STEP_CHANCE } from '../core/constants';
 import { isWalkable, tileAt, updateVisibility } from './dungeon';
 import { actEnemy, enemyAt } from './enemy';
 import { playerAttack } from './combat';
-import { pickupAt, swapEquipment, useItem } from './loot';
+import { dropItem, pickupAt, swapEquipment, useItem } from './loot';
 import { equip, hasPerk, takePerk } from './progression';
 import { addLog } from '../core/log';
 import { descend } from './state';
@@ -143,6 +143,8 @@ function resolvePlayerTurn(state: GameState, intent: Intent): boolean {
       return true;
     case 'useItem':
       return useItem(state, intent.slot);
+    case 'dropItem':
+      return dropItem(state, intent.slot);
     case 'move':
       return resolveMove(state, DIRECTIONS[intent.dir]);
     case 'choose':

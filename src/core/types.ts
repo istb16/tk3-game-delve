@@ -312,7 +312,9 @@ export type LogKey =
   | 'log.altarEmpty'
   | 'log.hiddenRoom'
   | 'log.treasuryTaken'
-  | 'log.achievement';
+  | 'log.achievement'
+  | 'log.dropped'
+  | 'log.dropNoRoom';
 
 export interface LogEntry {
   id: number;
@@ -343,6 +345,7 @@ export type Intent =
   | { type: 'move'; dir: Dir }
   | { type: 'wait' }
   | { type: 'useItem'; slot: number }
+  | { type: 'dropItem'; slot: number }
   /** レベルアップ等の選択肢を選ぶ */
   | { type: 'choose'; index: number }
   | { type: 'restart' };

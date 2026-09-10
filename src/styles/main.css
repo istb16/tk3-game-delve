@@ -787,6 +787,44 @@ kbd {
   transform: none;
 }
 
+/* 捨てるボタン。
+   常時出すとアイコンを覆って何のアイテムか分からなくなるので、
+   ホバー・フォーカス・タッチ選択のときだけ出す。 */
+.slot__drop {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 10;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 90ms ease-out;
+}
+
+.slot:hover .slot__drop,
+.slot--selected .slot__drop,
+.slot__btn:focus-visible ~ .slot__drop,
+.slot__drop:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.slot__drop:hover,
+.slot__drop:focus-visible {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 /* 所持数と1スロットの上限。上限に達していることを色でも示す。 */
 .tip__held {
   color: var(--text-dim);

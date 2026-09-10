@@ -92,7 +92,7 @@ function visibleEnemyIds(current: GameState): Set<string> {
 function dispatch(intent: Intent): void {
   // 何か別の操作をしたら選択は解除する。盤面が動いた後に
   // 古い選択が残っていると、次のタップで意図しないアイテムを使ってしまう。
-  if (intent.type !== 'useItem') selectedSlot = null;
+  if (intent.type !== 'useItem' && intent.type !== 'dropItem') selectedSlot = null;
 
   if (intent.type === 'restart') {
     // 死亡中のみ再開を受け付ける。プレイ中の誤爆で Run が消えるのを防ぐ。
@@ -180,7 +180,7 @@ root.addEventListener('click', (event) => {
 
   const button = target.closest(
     '[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-set-sound],' +
-      ' [data-set-panel], [data-use-slot], [data-choose]',
+      ' [data-set-panel], [data-use-slot], [data-drop-slot], [data-choose]',
   );
   if (!(button instanceof HTMLElement)) return;
 
@@ -212,6 +212,13 @@ root.addEventListener('click', (event) => {
   const choose = button.dataset['choose'];
   if (choose !== undefined) {
     dispatch({ type: 'choose', index: Number(choose) });
+    return;
+  }
+
+  const dropSlot = button.dataset['dropSlot'];
+  if (dropSlot !== undefined) {
+    selectedSlot = null;
+    dispatch({ type: 'dropItem', slot: Number(dropSlot) });
     return;
   }
 

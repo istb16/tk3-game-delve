@@ -14,27 +14,34 @@ export const ITEMS: readonly ItemDef[] = [
   {
     id: 'potion',
     name: 'Potion',
-    // 深いほどわずかに増やすが、敵の伸びには追いつかせない
-    perFloor: (floor) => (floor >= 10 ? 3 : 2),
+    // 1フロア1本を基本にする。
+    //
+    // 以前は毎フロア2本（10階以降3本）だったが、実測すると死亡時に
+    // 回復を4個以上抱えている run が 60 回中 16 回あった。
+    // 余るほど配ると「今使うか取っておくか」の判断が消え、
+    // ただ拾い集めるだけの作業になる。
+    perFloor: (floor) => (floor >= 12 ? 2 : 1),
   },
   {
     id: 'elixir',
     name: 'Elixir',
     // Potion より深い階から、控えめな頻度で。常に手元にあると
     // 「取っておく」判断が生まれない。
-    perFloor: (floor, roll) => (floor >= 4 && roll < 0.3 ? 1 : 0),
+    perFloor: (floor, roll) => (floor >= 4 && roll < 0.25 ? 1 : 0),
   },
   {
     id: 'bomb',
     name: 'Bomb',
-    // 常時あると立ち回りが単調になるので、半分弱のフロアにだけ置く
-    perFloor: (_floor, roll) => (roll < 0.45 ? 1 : 0),
+    // 状況を選ぶ道具なので使われずに溜まりやすい。
+    // 実測で死亡時に平均 4.2 個抱えていたため頻度を下げた。
+    perFloor: (_floor, roll) => (roll < 0.25 ? 1 : 0),
   },
   {
     id: 'scroll',
     name: 'Scroll',
-    // 当たりもハズレもある。頻繁に出ると「読むかどうか」の緊張が薄まる
-    perFloor: (_floor, roll) => (roll < 0.35 ? 1 : 0),
+    // 当たりもハズレもある。頻繁に出ると「読むかどうか」の緊張が薄まる。
+    // 実測で死亡時に平均 3.2 個抱えていたため頻度を下げた。
+    perFloor: (_floor, roll) => (roll < 0.22 ? 1 : 0),
   },
   {
     id: 'key',

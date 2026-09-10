@@ -39,7 +39,7 @@ import {
   rareEquipmentAt,
   toEquipment,
 } from '../data/equipment';
-import { UNREACHABLE, bfsDistances, chebyshev, tileAt, tileIndex } from './dungeon';
+import { UNREACHABLE, bfsDistances, chebyshev, isWalkable, tileAt, tileIndex } from './dungeon';
 import { addBonus, equip } from './progression';
 import { applyStatus } from './status';
 import { gainGold } from './player';
@@ -334,6 +334,78 @@ function addToInventory(player: Player, itemId: ItemId, count: number): number {
 export function createInventory(): (ItemStack | null)[] {
   return new Array<ItemStack | null>(INVENTORY_SIZE).fill(null);
 }
+
+// --- 捨てる ------------------------------------------------------------------
+
+/**
+ * アイテムを1つ床に置く。
+ *
+ * 消滅させずに床へ置くのは、外した装備と同じ扱いにするため。
+ * 「捨てたら取り返せない」にすると、枠を空けるだけの操作が
+ * 賭けになってしまう。
+ *
+ * ターンは消費する。持ち物を出し入れするのは盤面の中での行動であり、
+ * 無償にすると「囲まれた瞬間に鞄を整理して最適な札を出す」ができてしまう。
+ *
+ * @returns ターンを消費したか
+ */
+export function dropItem(state: GameState, slot: number): boolean {
+  const stack = state.player.inventory[slot];
+  if (!stack || stack.count <= 0) {
+    addLogOnce(state.log, 'log.emptySlot', { slot: slot + 1 }, 'info');
+    return false;
+  }
+
+  const pos = freeDropSpot(state);
+  if (!pos) {
+    // 置き場所が無いのに消してしまうと、操作が「破棄」に変わってしまう
+    addLogOnce(state.log, 'log.dropNoRoom', {}, 'bad');
+    return false;
+  }
+
+  state.entities.push({
+    id: `drop-${nextEntityId++}`,
+    kind: 'item',
+    pos,
+    payload: { type: 'item', itemId: stack.itemId, count: 1 },
+  });
+
+  stack.count -= 1;
+  if (stack.count <= 0) state.player.inventory[slot] = null;
+
+  addLog(state.log, 'log.dropped', { item: stack.itemId }, 'info');
+  return true;
+}
+
+/**
+ * 置ける床を探す。足元 -> 隣接の順。
+ *
+ * 1マスに2つ置くと、pickupAt が先に見つけた1つしか拾えず、
+ * もう1つが永久に取れなくなる。
+ */
+function freeDropSpot(state: GameState): Vec2 | null {
+  const occupied = (x: number, y: number): boolean =>
+    state.entities.some((e) => e.pos.x === x && e.pos.y === y);
+
+  const here = state.player.pos;
+  if (!occupied(here.x, here.y)) return { ...here };
+
+  for (const step of DROP_NEIGHBORS) {
+    const x = here.x + step.x;
+    const y = here.y + step.y;
+    if (!isWalkable(state.dungeon, x, y)) continue;
+    if (occupied(x, y)) continue;
+    return { x, y };
+  }
+  return null;
+}
+
+const DROP_NEIGHBORS: readonly Vec2[] = [
+  { x: 0, y: -1 },
+  { x: 0, y: 1 },
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+];
 
 // --- 使用 --------------------------------------------------------------------
 
