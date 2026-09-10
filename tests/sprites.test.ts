@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { SpriteDef } from '../src/ui/pixel';
 import { SPRITE_SIZE, validateSprite } from '../src/ui/pixel';
-import { allSprites, enemySpriteId, entitySpriteId, itemSpriteId } from '../src/ui/sprites';
+import { allSprites, enemySpriteId, entitySpriteId, itemSpriteId, perkSpriteId } from '../src/ui/sprites';
 import { ITEMS } from '../src/data/items';
 import { ENEMIES } from '../src/data/enemies';
+import { PERKS } from '../src/data/perks';
 import { EQUIPMENT, toEquipment } from '../src/data/equipment';
 import type { EntityPayload } from '../src/core/types';
 import { ELIXIR_HEAL, POTION_HEAL } from '../src/core/constants';
@@ -180,6 +181,21 @@ describe('スプライト名の網羅', () => {
     for (const payload of payloads) {
       const id = entitySpriteId({ id: 'e', kind: payload.type, pos: { x: 0, y: 0 }, payload });
       expect(ids.has(id), `${payload.type} の絵が無い`).toBe(true);
+    }
+  });
+
+  it('すべてのパークに絵があり、別々の絵を使っている', () => {
+    // パークはアイコンだけで並ぶので、絵が被ると画面上で区別が付かなくなる。
+    // 名前を出す手段はツールチップしかない（→ view.ts の renderPerks）。
+    const shapes = new Map<string, string>();
+    for (const perk of PERKS) {
+      const id = perkSpriteId(perk.id);
+      expect(ids.has(id), `${perk.id} の絵が無い`).toBe(true);
+
+      const frame = find(id).frames[0] ?? [];
+      const shape = frame.map((row) => [...row].map((c) => (c === '.' ? '.' : '#')).join('')).join('|');
+      expect(shapes.has(shape), `${perk.id} が ${shapes.get(shape)} と同じ輪郭`).toBe(false);
+      shapes.set(shape, perk.id);
     }
   });
 

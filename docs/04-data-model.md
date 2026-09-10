@@ -318,23 +318,25 @@ localStorage は用途ごとにキーを分ける。設定はゲームの進行�
 ```ts
 export type Lang = 'en' | 'ja';
 export type DpadMode = 'auto' | 'on' | 'off';
-export type PanelTab = 'gear' | 'log' | 'dpad';
+export type PanelTab = 'gear' | 'log' | 'dpad' | 'settings';
 
 interface Settings {
   lang: Lang;
   dpad: DpadMode;
   sound: boolean;
   panel: PanelTab;
-  settingsOpen: boolean;
 }
 ```
 
 `lang` の初期値は `navigator.language` から推定する。`dpad` の初期値は `'auto'`、
-`sound` は `false`、`panel` は `'gear'`、`settingsOpen` は `false`。
+`sound` は `false`、`panel` は `'gear'`。
 
-`panel` と `settingsOpen` は純粋な見た目の状態だが、ここに置く。
-UI 側に一時的な値を抱えるより素直で、毎ターンの再描画で消えることもない
-（→ [05 §5.8](05-ui-design.md)）。
+`panel` は純粋な見た目の状態だが、ここに置く。UI 側に一時的な値を抱えるより
+素直で、毎ターンの再描画で消えることもない（→ [05 §5.8](05-ui-design.md)）。
+
+設定欄の開閉は持たない。狭い画面では設定そのものが `panel` の 1 枚なので、
+タブの選択が開閉を兼ねる。**同じことを 2 つの値で表さない** —
+片方だけ変わる経路ができた時点で、どちらが正かが分からなくなる。
 
 **読み込みは常に既知の値だけを受け入れる。** 手で書き換えられた localStorage で
 未定義の状態に落ちないようにするため、`LANGS.find(v => v === record.lang) ?? 既定値`

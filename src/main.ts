@@ -63,6 +63,10 @@ function draw(): void {
  */
 function applySettings(): void {
   document.documentElement.dataset['dpad'] = settings.dpad;
+  // 選んでいるタブも DOM の1箇所（ルート）にだけ置く。
+  // 設定欄はサイドパネルの外にあるので、aside に持たせると
+  // 「タブは設定なのに設定欄は出ない」形で条件が二重化する。
+  document.documentElement.dataset['panel'] = settings.panel;
   document.documentElement.lang = settings.lang;
   setSoundEnabled(settings.sound);
 }
@@ -200,8 +204,7 @@ root.addEventListener('click', (event) => {
 
   const button = target.closest(
     '[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-set-sound],' +
-      ' [data-set-panel], [data-use-slot], [data-drop-slot], [data-choose],' +
-      ' [data-toggle-settings]',
+      ' [data-set-panel], [data-use-slot], [data-drop-slot], [data-choose]',
   );
   if (!(button instanceof HTMLElement)) return;
 
@@ -220,11 +223,6 @@ root.addEventListener('click', (event) => {
     return;
   }
 
-  if (button.dataset['toggleSettings'] !== undefined) {
-    updateSettings({ settingsOpen: !settings.settingsOpen });
-    return;
-  }
-
   const sound = button.dataset['setSound'];
   if (sound === 'on' || sound === 'off') {
     // 有効化はクリックの中で行う。ここで AudioContext を作れば suspended にならない。
@@ -233,7 +231,7 @@ root.addEventListener('click', (event) => {
   }
 
   const panel = button.dataset['setPanel'];
-  if (panel === 'gear' || panel === 'log' || panel === 'dpad') {
+  if (panel === 'gear' || panel === 'log' || panel === 'dpad' || panel === 'settings') {
     updateSettings({ panel: panel as PanelTab });
     return;
   }
