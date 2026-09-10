@@ -47,8 +47,27 @@ function renderSettings(settings: Settings): string {
         ${dpadButton('on', t(lang, 'ui.on'), settings.dpad)}
         ${dpadButton('off', t(lang, 'ui.off'), settings.dpad)}
       </div>
+      <div class="settings__group">
+        <span class="settings__label">${t(lang, 'ui.sound')}</span>
+        ${soundButton(settings.sound, lang)}
+      </div>
     </div>
   `;
+}
+
+/**
+ * 効果音のトグル。既定は OFF。
+ *
+ * クリックの中で AudioContext を作る必要があるので、有効化はボタン経由に限る
+ * （自動再生ポリシーで suspended になったまま残るのを避ける）。
+ */
+function soundButton(on: boolean, lang: Lang): string {
+  const label = on ? t(lang, 'ui.on') : t(lang, 'ui.off');
+  const aria = on ? t(lang, 'aria.soundOff') : t(lang, 'aria.soundOn');
+  return (
+    `<button class="settings__btn${on ? ' settings__btn--active' : ''}"` +
+    ` data-set-sound="${on ? 'off' : 'on'}" aria-pressed="${on}" aria-label="${aria}">${label}</button>`
+  );
 }
 
 function langButton(value: Lang, label: string, current: Lang): string {

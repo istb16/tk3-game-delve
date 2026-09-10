@@ -110,6 +110,8 @@ function applyOnHitEffects(state: GameState, target: Enemy): void {
 export function damageEnemy(state: GameState, target: Enemy, damage: number): void {
   if (target.hp <= 0) return;
   target.hp -= damage;
+  target.hurtOnTurn = state.turn;
+  target.lastDamage = damage;
 
   if (target.hp > 0) {
     checkEnrage(state, target);
@@ -159,6 +161,8 @@ export function enemyAttack(state: GameState, attacker: Enemy): void {
   if (absorbWithShield(state)) return;
 
   player.hp -= damage;
+  player.hurtOnTurn = state.turn;
+  player.lastDamage = damage;
   addLog(state.log, 'log.enemyHit', { name: attacker.name, damage }, 'bad');
 
   // 反射は被弾が成立したときだけ。回避したのに棘が刺さるのはおかしい。

@@ -702,6 +702,153 @@ kbd {
   letter-spacing: 0.08em;
 }
 
+
+/* --- 演出 ------------------------------------------------------------------ */
+
+/* render() は毎ターン innerHTML を作り直すので、クラスが付いた時点で
+   アニメーションは必ず先頭から再生される。JS 側で状態を持つ必要がない。 */
+
+@keyframes delve-hurt {
+  0% { opacity: 0.25; }
+  100% { opacity: 0; }
+}
+
+/* 被弾した瞬間、画面の縁が赤く沈む。数値を見なくても「効いた」と分かる。 */
+.stage--hurt .stage__board::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  background: radial-gradient(ellipse at center, transparent 45%, var(--danger) 100%);
+  animation: delve-hurt 260ms ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes delve-levelup {
+  0% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+
+.stage--levelup .stage__board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  background: radial-gradient(ellipse at center, var(--accent) 0%, transparent 65%);
+  animation: delve-levelup 420ms ease-out forwards;
+  pointer-events: none;
+}
+
+.stage__board {
+  position: relative;
+}
+
+@keyframes delve-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* 被弾したアクターを一瞬点滅させる。どれが殴られたのかを盤面で示す。 */
+.actor--hurt {
+  animation: delve-flash 200ms steps(2, end) 2;
+}
+
+@keyframes delve-damage {
+  0% { opacity: 0; transform: translateY(0.25px); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-0.55px); }
+}
+
+/* ダメージ数値。1マス = 1単位の座標系なので、文字サイズも単位で指定する。 */
+.damage {
+  fill: var(--text);
+  stroke: var(--bg);
+  stroke-width: 0.06;
+  paint-order: stroke;
+  font-family: inherit;
+  font-size: 0.42px;
+  font-weight: 700;
+  text-anchor: middle;
+  animation: delve-damage 620ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* --- 実績 ------------------------------------------------------------------ */
+
+.ach__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.ach {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  /* 未解除は沈めるが、名前と条件は読める明るさに保つ。
+     何を目指せるのか分からないものは目標にならない。 */
+  opacity: 0.45;
+}
+
+.ach--done {
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.ach__name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.ach--done .ach__name {
+  color: var(--accent);
+}
+
+.ach__desc {
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+/* --- サイドパネルのタブ ----------------------------------------------------- */
+
+/* 広い画面では両方見えているので、タブは出さない。 */
+.tabs {
+  display: none;
+  gap: 4px;
+}
+
+.tab {
+  flex: 1;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.tab--active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.side__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
 /* --- レスポンシブ --------------------------------------------------------- */
 
 /* ブレークポイントは1箇所だけ。中間状態を増やすと検証コストが跳ね上がる。 */
@@ -719,15 +866,29 @@ kbd {
     overflow-y: auto;
   }
 
-  /* 縦に積むと情報量が多すぎるので、装備とパークは横に並べる */
-  .stage__side {
+  /* 狭い画面では縦に積むと情報量が多すぎるので、タブで切り替える。
+     装備を見るのとログを読むのは別の目的なので、同時に見えている必要がない。 */
+  .tabs {
+    display: flex;
+  }
+
+  .stage__side[data-tab='gear'] .side__group--log,
+  .stage__side[data-tab='log'] .side__group--gear {
+    display: none;
+  }
+
+  .stage__side[data-tab='gear'] .side__group--gear {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
 
-  .stage__side .log {
-    grid-column: 1 / -1;
+  .log__list {
+    max-height: none;
+  }
+
+  .ach__list {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -39,8 +39,8 @@ afterEach(() => {
 describe('設定の永続化', () => {
   it('保存した値が復元される', async () => {
     const { loadSettings, saveSettings } = await import('../src/storage/settings');
-    saveSettings({ lang: 'ja', dpad: 'on' });
-    expect(loadSettings()).toEqual({ lang: 'ja', dpad: 'on' });
+    saveSettings({ lang: 'ja', dpad: 'on', sound: true, panel: 'log' });
+    expect(loadSettings()).toEqual({ lang: 'ja', dpad: 'on', sound: true, panel: 'log' });
   });
 
   it('壊れた JSON でも既定値で起動する', async () => {
@@ -61,7 +61,7 @@ describe('設定の永続化', () => {
     installBrokenStorage();
     const { loadSettings, saveSettings } = await import('../src/storage/settings');
     expect(() => loadSettings()).not.toThrow();
-    expect(() => saveSettings({ lang: 'en', dpad: 'off' })).not.toThrow();
+    expect(() => saveSettings({ lang: 'en', dpad: 'off', sound: false, panel: 'gear' })).not.toThrow();
   });
 });
 

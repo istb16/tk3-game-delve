@@ -105,6 +105,8 @@ describe('アイテムの使用', () => {
         exp: 7,
         gold: 3,
         steps: 0,
+        hurtOnTurn: -1,
+        lastDamage: 0,
         effects: [],
         evasion: 0,
         ability: null,

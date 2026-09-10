@@ -24,6 +24,8 @@ function placeEnemy(state: GameState, dx: number, dy: number, hp = 100): Enemy {
     exp: 6,
     gold: 5,
     steps: 0,
+    hurtOnTurn: -1,
+    lastDamage: 0,
     effects: [],
     evasion: 0,
     ability: null,

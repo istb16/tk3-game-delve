@@ -79,8 +79,10 @@ export function renderBoard(state: GameState, settings: Settings): string {
       .filter((e) => e.turns > 0)
       .map((e) => ` actor--${e.kind}`)
       .join('');
+    // 被弾演出も状態から導出する。UI 側にフラグを持たない（CLAUDE.md の境界5）
+    const hurt = enemy.hurtOnTurn === state.turn ? ' actor--hurt' : '';
     parts.push(
-      `<g class="actor actor--enemy actor--${enemy.kind}${marks}">` +
+      `<g class="actor actor--enemy actor--${enemy.kind}${marks}${hurt}">` +
         `<use href="#${enemySpriteId(enemy.kind, frameOf(enemy))}" x="${enemy.pos.x}" y="${enemy.pos.y}" width="1" height="1"/>` +
         `<rect class="actor__hp-track" x="${enemy.pos.x + 0.15}" y="${enemy.pos.y + 0.02}" width="0.7" height="0.07" rx="0.035"/>` +
         `<rect class="actor__hp-fill" x="${enemy.pos.x + 0.15}" y="${enemy.pos.y + 0.02}" width="${(0.7 * hpRatio).toFixed(3)}" height="0.07" rx="0.035"/>` +
@@ -89,8 +91,9 @@ export function renderBoard(state: GameState, settings: Settings): string {
   }
 
   const p = state.player;
+  const playerHurt = p.hurtOnTurn === state.turn ? ' actor--hurt' : '';
   parts.push(
-    `<g class="actor actor--player">` +
+    `<g class="actor actor--player${playerHurt}">` +
       `<circle class="actor__torch" cx="${p.pos.x + 0.5}" cy="${p.pos.y + 0.5}" r="0.9"/>` +
       `<use href="#${playerSpriteId(frameOf(p))}" x="${p.pos.x}" y="${p.pos.y}" width="1" height="1"/>` +
       `</g>`,
@@ -101,6 +104,16 @@ export function renderBoard(state: GameState, settings: Settings): string {
     x: p.pos.x + 1,
     y: p.pos.y + 1,
   });
+
+  // ダメージ数値は最後に描く。何にも隠れないようにするため。
+  for (const actor of [state.player, ...state.enemies]) {
+    if (actor.hurtOnTurn !== state.turn || actor.lastDamage <= 0) continue;
+    if (!d.visible[tileIndex(d, actor.pos.x, actor.pos.y)]) continue;
+    parts.push(
+      `<text class="damage" x="${actor.pos.x + 0.5}" y="${actor.pos.y + 0.3}">` +
+        `${actor.lastDamage}</text>`,
+    );
+  }
 
   return (
     `<svg class="board" viewBox="0 0 ${d.width} ${d.height}" shape-rendering="crispEdges"` +

@@ -14,9 +14,12 @@ export function createPlayer(pos: Vec2): Player {
     defense: PLAYER_BASE.defense,
     level: 1,
     exp: 0,
+    leveledOnTurn: -1,
     nextExp: expToNextLevel(1),
     gold: 0,
     steps: 0,
+    hurtOnTurn: -1,
+    lastDamage: 0,
     inventory: createInventory(),
     equipment: { weapon: null, armor: null, ring: null },
     perks: [],
@@ -54,6 +57,7 @@ export function gainExp(state: GameState, amount: number): void {
     player.exp -= player.nextExp;
     player.level += 1;
     player.nextExp = expToNextLevel(player.level);
+    player.leveledOnTurn = state.turn;
 
     // レベルによる基礎値の変化も recalcStats がレベルから引き直す。
     // ここで直接 maxHp などを触ると、装備の補正と二重に足されてしまう。

@@ -60,6 +60,17 @@ export interface Actor {
    * アニメーション状態を UI に持たせず、ゲーム状態から導出するための出典。
    */
   steps: number;
+  /**
+   * 最後にダメージを受けたターン番号。UI は `hurtOnTurn === state.turn` で
+   * 被弾演出を出すかどうかを決める。
+   *
+   * これも `steps` と同じ考え方 — 「何が起きたか」はゲーム状態の事実として持ち、
+   * 演出はそこから導出する。UI 側にフラグを置くと、演出が出る／出ないが
+   * 再描画の都合で決まってしまう。
+   */
+  hurtOnTurn: number;
+  /** 直近に受けたダメージ量。ダメージ表示に使う。 */
+  lastDamage: number;
 }
 
 // --- アイテム ----------------------------------------------------------------
@@ -118,6 +129,19 @@ export interface Equipment {
   effectChance: number;
 }
 
+// --- 実績 --------------------------------------------------------------------
+
+export type AchievementId =
+  | 'firstBlood'
+  | 'deepDiver'
+  | 'treasureHunter'
+  | 'slayer'
+  | 'bossKiller'
+  | 'centurion'
+  | 'floor10'
+  | 'floor25'
+  | 'floor50';
+
 // --- パーク ------------------------------------------------------------------
 
 export type PerkId =
@@ -166,6 +190,8 @@ export interface Entity {
 export interface Player extends Actor {
   level: number;
   exp: number;
+  /** 最後にレベルが上がったターン番号。演出の判定に使う。 */
+  leveledOnTurn: number;
   /** 次のレベルまでに必要な累計経験値 */
   nextExp: number;
   gold: number;
@@ -284,7 +310,8 @@ export type LogKey =
   | 'log.altarSwapped'
   | 'log.altarEmpty'
   | 'log.hiddenRoom'
-  | 'log.treasuryTaken';
+  | 'log.treasuryTaken'
+  | 'log.achievement';
 
 export interface LogEntry {
   id: number;
@@ -353,6 +380,11 @@ export type PendingChoice =
 
 export interface GameState {
   phase: Phase;
+  /**
+   * 経過ターン数。演出の「今このターンに起きたか」の判定に使う。
+   * ターンの開始時に増やすので、そのターン中のダメージはすべて同じ番号になる。
+   */
+  turn: number;
   /** ターン処理中に使う乱数。フロア生成には fork した子 RNG を使う。 */
   rng: Rng;
   /** この Run の乱数シード。同じシードなら同じダンジョンが再現される。 */

@@ -29,6 +29,8 @@ function makeEnemy(state: GameState, over: Partial<Enemy> = {}): Enemy {
     exp: 5,
     gold: 5,
     steps: 0,
+    hurtOnTurn: -1,
+    lastDamage: 0,
     effects: [],
     evasion: 0,
     ability: null,

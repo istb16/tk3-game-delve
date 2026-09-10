@@ -133,6 +133,8 @@ function createEnemy(def: EnemyDef, pos: Vec2, floor: number): Enemy {
     exp: Math.floor(def.exp * hpScale(floor)),
     gold: Math.floor(def.gold * hpScale(floor)),
     steps: 0,
+    hurtOnTurn: -1,
+    lastDamage: 0,
     effects: [],
     evasion: def.evasion,
     ability: def.ability,

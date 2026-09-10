@@ -1,4 +1,13 @@
-import type { EventId, GameState, PendingChoice, PerkId, Slot, StatMods } from '../core/types';
+import type {
+  AchievementId,
+  EventId,
+  GameState,
+  PendingChoice,
+  PerkId,
+  Slot,
+  StatMods,
+} from '../core/types';
+import { ACHIEVEMENT_IDS } from '../data/achievements';
 import type { Settings } from '../storage/settings';
 import type { RunOutcome, SaveData } from '../storage/save';
 import { computeScore } from '../storage/save';
@@ -25,14 +34,19 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
   const { settings } = ctx;
   root.innerHTML = `
     ${renderHud(state, settings)}
-    <main class="stage">
+    <main class="stage${stageEffects(state)}">
       <div class="stage__board">${renderBoard(state, settings)}</div>
-      <aside class="stage__side">
-        ${renderStatus(state, settings)}
-        ${renderEquipment(state, settings)}
-        ${renderItems(state, settings)}
-        ${renderPerks(state, settings)}
-        ${renderLog(state, settings)}
+      <aside class="stage__side" data-tab="${settings.panel}">
+        ${renderTabs(settings)}
+        <div class="side__group side__group--gear">
+          ${renderStatus(state, settings)}
+          ${renderEquipment(state, settings)}
+          ${renderItems(state, settings)}
+          ${renderPerks(state, settings)}
+        </div>
+        <div class="side__group side__group--log">
+          ${renderLog(state, settings)}
+        </div>
       </aside>
     </main>
     <footer class="hint">
@@ -51,6 +65,58 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
   } else if (state.phase === 'choosing') {
     root.querySelector<HTMLButtonElement>('[data-choose]')?.focus();
   }
+}
+
+/**
+ * 演出クラス。ゲーム状態から導出する — UI 側にフラグを持たない。
+ *
+ * `render()` は毎ターン innerHTML を作り直すので、クラスを付けるだけで
+ * CSS アニメーションが必ず先頭から再生される。状態を持つ必要がない。
+ */
+function stageEffects(state: GameState): string {
+  const marks: string[] = [];
+  if (state.player.hurtOnTurn === state.turn) marks.push('stage--hurt');
+  if (state.player.leveledOnTurn === state.turn) marks.push('stage--levelup');
+  return marks.length > 0 ? ' ' + marks.join(' ') : '';
+}
+
+/**
+ * 狭い画面でサイドパネルが縦に伸びすぎるので、装備側とログ側を切り替える。
+ * 選択は設定として保存する — 一度選んだ見た目が次に開いた時も残る。
+ */
+function renderTabs(settings: Settings): string {
+  const tab = (id: 'gear' | 'log', label: string) =>
+    `<button class="tab${settings.panel === id ? ' tab--active' : ''}" data-set-panel="${id}"` +
+    ` aria-pressed="${settings.panel === id}">${label}</button>`;
+
+  return (
+    `<nav class="tabs">` +
+    tab('gear', t(settings.lang, 'ui.tabGear')) +
+    tab('log', t(settings.lang, 'ui.tabLog')) +
+    `</nav>`
+  );
+}
+
+/**
+ * 実績。未解除も名前と条件を見せる — 何を目指せるのかが分かって初めて目標になる。
+ */
+function renderAchievements(unlocked: readonly AchievementId[], settings: Settings): string {
+  const have = new Set(unlocked);
+  const rows = ACHIEVEMENT_IDS.map((id) => {
+    const done = have.has(id);
+    return (
+      `<li class="ach${done ? ' ach--done' : ''}">` +
+      `<span class="ach__name">${escapeHtml(t(settings.lang, `ach.${id}` as const))}</span>` +
+      `<span class="ach__desc">${escapeHtml(t(settings.lang, `achDesc.${id}` as const))}</span>` +
+      `</li>`
+    );
+  }).join('');
+
+  return (
+    `<section class="panel"><h2 class="panel__title">` +
+    `${t(settings.lang, 'ui.achievements')} ${have.size}/${ACHIEVEMENT_IDS.length}` +
+    `</h2><ul class="ach__list">${rows}</ul></section>`
+  );
 }
 
 // --- パネル ------------------------------------------------------------------
@@ -346,6 +412,7 @@ function renderDeathModal(state: GameState, ctx: ViewContext): string {
           )}
         </dl>
         <p class="result__best">${t(settings.lang, 'ui.best')} &middot; FLOOR ${bestDepth} &middot; ${bestScore}</p>
+        ${renderAchievements(save.achievements, settings)}
         <button class="btn btn--primary" data-action="restart">DELVE AGAIN</button>
         <p class="modal__hint">${t(settings.lang, 'ui.pressEnter', { key: 'Enter' })}</p>
       </div>

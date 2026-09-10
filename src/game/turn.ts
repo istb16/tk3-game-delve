@@ -32,6 +32,10 @@ export function takeTurn(state: GameState, intent: Intent): void {
   }
   if (state.phase !== 'playing') return;
 
+  // ターン番号は行動の前に進める。こうするとこのターン中に起きたダメージが
+  // すべて同じ番号になり、描画側は「hurtOnTurn === turn」だけで演出を判定できる。
+  state.turn += 1;
+
   const floorBefore = state.floor;
   // 手番を持つのは「プレイヤーが動く前からいた敵」だけ。
   // プレイヤーの行動中に生まれた敵（Slime の分裂、イベントの番人）に

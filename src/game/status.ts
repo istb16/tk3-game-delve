@@ -70,6 +70,8 @@ function tickPlayer(state: GameState): void {
 
   if (damage > 0) {
     player.hp -= damage;
+    player.hurtOnTurn = state.turn;
+    player.lastDamage = damage;
     addLog(state.log, 'log.statusTick', { damage }, 'bad');
     if (player.hp <= 0) {
       player.hp = 0;

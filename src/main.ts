@@ -7,11 +7,14 @@ import { tileIndex } from './game/dungeon';
 import { render } from './ui/view';
 import { intentFromDpad, intentFromKey, isGameKey } from './ui/input';
 import { installFavicon } from './ui/favicon';
-import type { DpadMode, Lang, Settings } from './storage/settings';
+import type { DpadMode, Lang, PanelTab, Settings } from './storage/settings';
 import { loadSettings, saveSettings } from './storage/settings';
 import type { RunOutcome, SaveData } from './storage/save';
-import { loadSave, recordRun } from './storage/save';
+import { loadSave, recordAchievements, recordRun } from './storage/save';
 import { addLog } from './core/log';
+import { evaluateAchievements, logAchievements } from './game/achievements';
+import { setSoundEnabled } from './audio/sfx';
+import { playCues } from './ui/cues';
 
 const container = document.getElementById('app');
 if (!container) throw new Error('#app not found');
@@ -22,6 +25,8 @@ installFavicon();
 
 let settings: Settings = loadSettings();
 applySettings();
+// 起動時に true でも AudioContext は作らない（最初の操作まで待つ）
+setSoundEnabled(settings.sound);
 
 let save: SaveData = loadSave();
 /** 直前の Run の結果。リザルト画面が「記録を更新したか」を判定するのに使う。 */
@@ -43,6 +48,7 @@ function draw(): void {
 function applySettings(): void {
   document.documentElement.dataset['dpad'] = settings.dpad;
   document.documentElement.lang = settings.lang;
+  setSoundEnabled(settings.sound);
 }
 
 function updateSettings(patch: Partial<Settings>): void {
@@ -87,7 +93,16 @@ function dispatch(intent: Intent): void {
     const floorBefore = state.floor;
     const seenBefore = visibleEnemyIds(state);
 
+    const logBefore = state.log.length;
     takeTurn(state, intent);
+
+    // 実績は毎ターン見る。述語が9個なので負荷は無視できる。
+    // 「100体目で解除」を死亡まで待たせないために、進行中に判定する。
+    const unlocked = evaluateAchievements(state, save.achievements, save.totalKills);
+    if (unlocked.length > 0) {
+      logAchievements(state, unlocked);
+      save = recordAchievements(save, unlocked);
+    }
 
     const tookDamage = state.player.hp < hpBefore;
     const changedFloor = state.floor !== floorBefore;
@@ -104,6 +119,8 @@ function dispatch(intent: Intent): void {
         addLog(state.log, 'log.newBest', { floor: state.stats.deepestFloor }, 'system');
       }
     }
+    // 音は「何が起きたか」をログから引く。game/ は音の存在を知らない。
+    playCues(state.log.slice(logBefore).map((entry) => entry.key));
   }
   draw();
 }
@@ -143,7 +160,8 @@ root.addEventListener('click', (event) => {
   if (!(target instanceof HTMLElement)) return;
 
   const button = target.closest(
-    '[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-use-slot], [data-choose]',
+    '[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-set-sound],' +
+      ' [data-set-panel], [data-use-slot], [data-choose]',
   );
   if (!(button instanceof HTMLElement)) return;
 
@@ -156,6 +174,19 @@ root.addEventListener('click', (event) => {
   const dpad = button.dataset['setDpad'];
   if (dpad === 'auto' || dpad === 'on' || dpad === 'off') {
     updateSettings({ dpad: dpad as DpadMode });
+    return;
+  }
+
+  const sound = button.dataset['setSound'];
+  if (sound === 'on' || sound === 'off') {
+    // 有効化はクリックの中で行う。ここで AudioContext を作れば suspended にならない。
+    updateSettings({ sound: sound === 'on' });
+    return;
+  }
+
+  const panel = button.dataset['setPanel'];
+  if (panel === 'gear' || panel === 'log') {
+    updateSettings({ panel: panel as PanelTab });
     return;
   }
 

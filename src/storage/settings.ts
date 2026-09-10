@@ -14,7 +14,24 @@ export type DpadMode = 'auto' | 'on' | 'off';
 export interface Settings {
   lang: Lang;
   dpad: DpadMode;
+  /**
+   * 効果音。既定は OFF。
+   *
+   * 開いた瞬間に音が出るページは、それだけで閉じられる理由になる。
+   * 鳴らすかどうかはプレイヤーが決める（docs/01 FR-12）。
+   */
+  sound: boolean;
+  /**
+   * サイドパネルのどちらを見せるか（狭い画面でのタブ）。
+   *
+   * これは純粋な見た目の状態だが、設定として保存する。
+   * 「一度選んだ表示が次に開いた時も残る」方が、UI 側に一時的な状態を
+   * 抱えるより素直で、再描画で消えることもない。
+   */
+  panel: PanelTab;
 }
+
+export type PanelTab = 'gear' | 'log';
 
 /** バージョンをキー名に含める。スキーマを変えた時に旧データを壊さず無視できる。 */
 const STORAGE_KEY = 'delve.settings.v1';
@@ -25,11 +42,12 @@ function detectLang(): Lang {
 }
 
 export function defaultSettings(): Settings {
-  return { lang: detectLang(), dpad: 'auto' };
+  return { lang: detectLang(), dpad: 'auto', sound: false, panel: 'gear' };
 }
 
 const LANGS: readonly Lang[] = ['en', 'ja'];
 const DPAD_MODES: readonly DpadMode[] = ['auto', 'on', 'off'];
+const PANEL_TABS: readonly PanelTab[] = ['gear', 'log'];
 
 export function loadSettings(): Settings {
   const fallback = defaultSettings();
@@ -45,7 +63,9 @@ export function loadSettings(): Settings {
     // 手で書き換えられた localStorage で未定義の状態にならないようにするため。
     const lang = LANGS.find((v) => v === record['lang']) ?? fallback.lang;
     const dpad = DPAD_MODES.find((v) => v === record['dpad']) ?? fallback.dpad;
-    return { lang, dpad };
+    const sound = typeof record['sound'] === 'boolean' ? record['sound'] : fallback.sound;
+    const panel = PANEL_TABS.find((v) => v === record['panel']) ?? fallback.panel;
+    return { lang, dpad, sound, panel };
   } catch {
     return fallback;
   }

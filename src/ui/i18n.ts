@@ -71,6 +71,7 @@ export type MessageKey =
   | 'log.altarEmpty'
   | 'log.hiddenRoom'
   | 'log.treasuryTaken'
+  | 'log.achievement'
   // UI
   | 'ui.tagline'
   | 'ui.log'
@@ -99,6 +100,32 @@ export type MessageKey =
   | 'perkDesc.fireDamage'
   | 'perkDesc.shield'
   | 'ui.status'
+  | 'ui.achievements'
+  | 'ui.sound'
+  | 'ui.locked'
+  | 'ui.unlocked'
+  | 'ach.firstBlood'
+  | 'ach.deepDiver'
+  | 'ach.treasureHunter'
+  | 'ach.slayer'
+  | 'ach.bossKiller'
+  | 'ach.centurion'
+  | 'ach.floor10'
+  | 'ach.floor25'
+  | 'ach.floor50'
+  | 'achDesc.firstBlood'
+  | 'achDesc.deepDiver'
+  | 'achDesc.treasureHunter'
+  | 'achDesc.slayer'
+  | 'achDesc.bossKiller'
+  | 'achDesc.centurion'
+  | 'achDesc.floor10'
+  | 'achDesc.floor25'
+  | 'achDesc.floor50'
+  | 'aria.soundOn'
+  | 'aria.soundOff'
+  | 'ui.tabGear'
+  | 'ui.tabLog'
   | 'status.poison'
   | 'status.burn'
   | 'status.slow'
@@ -329,6 +356,34 @@ const EN: Record<MessageKey, string> = {
   'aria.moveLeft': 'Move left',
   'aria.moveRight': 'Move right',
   'aria.wait': 'Wait one turn',
+
+  'log.achievement': 'ACHIEVEMENT: {name}',
+  'ui.achievements': 'ACHIEVEMENTS',
+  'ui.sound': 'Sound',
+  'ui.locked': 'locked',
+  'ui.unlocked': 'unlocked',
+  'ach.firstBlood': 'First Blood',
+  'ach.deepDiver': 'Deep Diver',
+  'ach.treasureHunter': 'Treasure Hunter',
+  'ach.slayer': 'Slayer',
+  'ach.bossKiller': 'Boss Killer',
+  'ach.centurion': 'Centurion',
+  'ach.floor10': 'Floor 10',
+  'ach.floor25': 'Floor 25',
+  'ach.floor50': 'Floor 50',
+  'achDesc.firstBlood': 'Kill your first enemy',
+  'achDesc.deepDiver': 'Reach floor 5',
+  'achDesc.treasureHunter': 'Open 10 chests in one run',
+  'achDesc.slayer': 'Kill 30 enemies in one run',
+  'achDesc.bossKiller': 'Kill a boss',
+  'achDesc.centurion': 'Kill 100 enemies in total',
+  'achDesc.floor10': 'Reach floor 10',
+  'achDesc.floor25': 'Reach floor 25',
+  'achDesc.floor50': 'Reach floor 50',
+  'aria.soundOn': 'Turn sound on',
+  'aria.soundOff': 'Turn sound off',
+  'ui.tabGear': 'GEAR',
+  'ui.tabLog': 'LOG',
 };
 
 const JA: Record<MessageKey, string> = {
@@ -488,6 +543,34 @@ const JA: Record<MessageKey, string> = {
   'aria.moveLeft': '左に移動',
   'aria.moveRight': '右に移動',
   'aria.wait': '1ターン待機',
+
+  'log.achievement': '実績解除: {name}',
+  'ui.achievements': 'ACHIEVEMENTS',
+  'ui.sound': '効果音',
+  'ui.locked': '未解除',
+  'ui.unlocked': '解除済み',
+  'ach.firstBlood': 'First Blood',
+  'ach.deepDiver': 'Deep Diver',
+  'ach.treasureHunter': 'Treasure Hunter',
+  'ach.slayer': 'Slayer',
+  'ach.bossKiller': 'Boss Killer',
+  'ach.centurion': 'Centurion',
+  'ach.floor10': 'Floor 10',
+  'ach.floor25': 'Floor 25',
+  'ach.floor50': 'Floor 50',
+  'achDesc.firstBlood': '初めて敵を倒す',
+  'achDesc.deepDiver': '5階に到達する',
+  'achDesc.treasureHunter': '1回の探索で宝箱を10個開ける',
+  'achDesc.slayer': '1回の探索で敵を30体倒す',
+  'achDesc.bossKiller': 'ボスを倒す',
+  'achDesc.centurion': '累計100体倒す',
+  'achDesc.floor10': '10階に到達する',
+  'achDesc.floor25': '25階に到達する',
+  'achDesc.floor50': '50階に到達する',
+  'aria.soundOn': '効果音を鳴らす',
+  'aria.soundOff': '効果音を止める',
+  'ui.tabGear': '装備',
+  'ui.tabLog': 'ログ',
 };
 
 const TABLES: Record<Lang, Record<MessageKey, string>> = { en: EN, ja: JA };
