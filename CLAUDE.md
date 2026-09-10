@@ -31,7 +31,7 @@ npm run build      # tsc → vite build → 単一HTML化 → dist/delve.html
 `npm run build` の後は `dist/delve.html` をブラウザで直接開いて（`file://` で）動作確認する。
 単一ファイル化の破綻はここでしか見つからない。
 
-`main` に push すると `.github/workflows/deploy.yml` が `dist/delve.html` を作り直し、
+`main` に入ると `.github/workflows/deploy.yml` が `dist/delve.html` を作り直し、
 `istb16/tk3-biz-html` の `public/sproj/delve.html` を上書きして公開まで繋がる
 （→ [docs/02 §2.7b](docs/02-architecture.md)）。**壊れたものを main に入れない。**
 
@@ -223,6 +223,10 @@ node tools/difficulty-model.mjs
 ## コミット
 
 日本語で書く。1 コミット = 1 つのまとまった変更。壊れた状態をコミットしない。
+
+**`main` へ直接 push しない。ブランチを切って PR にする。**
+`main` に入った時点で自動で公開されるため、CI（`ci.yml`）が緑になったものだけを
+マージする。
 
 **コミットするたびに `package.json` の `version` にパッチを 1 つ足す**（0.0.1 加算）。
 `0.1.0` → `0.1.1` → `0.1.2`。バージョンの加算は同じコミットに含める。

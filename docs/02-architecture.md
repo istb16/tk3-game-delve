@@ -193,16 +193,22 @@ devDependency で、出荷される `dist/delve.html` には一切含まれな�
 
 ## 2.7b デプロイ
 
-`main` に push されると `.github/workflows/deploy.yml` が動く。
+`main` に入ると `.github/workflows/deploy.yml` が動く。
+**`main` へは PR 経由でしか入らない。**
 
 ```
-main に push
+ブランチを切る → push → PR
+  → ci.yml が typecheck / test / build / 単一ファイル検証
+  → 緑ならマージ
+main が動く
   → npm ci → npm test → npm run build
   → dist/delve.html が 1 枚だけできていることを確認
   → istb16/tk3-biz-html の public/sproj/delve.html を上書きして push
   → 向こうの Firebase Hosting デプロイが走り、公開される
 ```
 
+- **PR で検証し、マージ後にもう一度検証する。** 公開するのは「main の内容」で
+  あって PR の時点の内容ではない。マージで初めて壊れる組み合わせを拾うため。
 - **テストを通してからビルドする。** 壊れた `delve.html` が公開に流れないため。
 - **中身が変わっていなければ push しない。** docs だけの変更でも `main` は動くので、
   向こうのリポジトリに空コミットとデプロイを積まないため。
