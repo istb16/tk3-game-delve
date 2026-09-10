@@ -17,7 +17,7 @@ import { renderHud, renderSettings } from './hud';
 import type { MessageKey } from './i18n';
 import { t } from './i18n';
 import { formatLogEntry } from './logline';
-import { itemSpriteId } from './sprites';
+import { itemSpriteId, perkSpriteId } from './sprites';
 import { BOMB_DAMAGE, ELIXIR_HEAL, MAX_STACK, POTION_HEAL } from '../core/constants';
 
 export interface ViewContext {
@@ -46,13 +46,12 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
     ${renderHud(state, settings)}
     <main class="stage${stageEffects(state)}">
       <div class="stage__board">${renderBoard(state, settings)}${renderFx(state)}</div>
-      <aside class="stage__side" data-tab="${settings.panel}">
+      <aside class="stage__side">
         ${renderTabs(settings)}
         <div class="side__group side__group--gear">
           ${renderStatus(state, settings)}
           ${renderEquipment(state, settings)}
           ${renderItems(state, settings, ctx.selectedSlot)}
-          ${renderPerks(state, settings)}
         </div>
         <div class="side__group side__group--log">
           ${renderLog(state, settings)}
@@ -65,7 +64,6 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
     <footer class="hint">
       <span class="hint__keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> ${t(settings.lang, 'ui.move')}</span>
       <span class="hint__keys"><kbd>1</kbd>-<kbd>8</kbd> ${t(settings.lang, 'ui.useItemHint')} / <kbd>Shift</kbd>+<kbd>1</kbd>-<kbd>8</kbd> ${t(settings.lang, 'ui.drop')}</span>
-      <span class="hint__tap">${t(settings.lang, 'ui.tapMove')}</span>
       <span class="hint__motto">${t(settings.lang, 'ui.motto')}</span>
     </footer>
     ${renderSettings(settings)}
@@ -113,22 +111,30 @@ function renderFx(state: GameState): string {
 }
 
 /**
- * 狭い画面ではサイドパネルの中身が縦に伸びすぎるので、装備・ログ・方向キーを
- * 切り替える。3つが同じ高さを奪い合う形にすることで、iPhone の縦画面でも
+ * 狭い画面ではサイドパネルの中身が縦に伸びすぎるので、装備・ログ・方向キー・設定を
+ * 切り替える。4つが同じ高さを奪い合う形にすることで、iPhone の縦画面でも
  * スクロールせずに全部へ手が届く。
+ *
+ * 設定もこの列に入れる。専用の開閉ボタンを別行に置くと、閉じている間も
+ * その1行ぶんの高さを盤面から奪い続ける。
  *
  * 選択は設定として保存する — 一度選んだ見た目が次に開いた時も残る。
  */
 function renderTabs(settings: Settings): string {
-  const tab = (id: PanelTab, label: string) =>
+  const tab = (id: PanelTab, label: string, aria = '') =>
     `<button class="tab tab--${id}${settings.panel === id ? ' tab--active' : ''}"` +
-    ` data-set-panel="${id}" aria-pressed="${settings.panel === id}">${label}</button>`;
+    ` data-set-panel="${id}" aria-pressed="${settings.panel === id}"` +
+    (aria ? ` aria-label="${escapeHtml(aria)}"` : '') +
+    `>${label}</button>`;
 
   return (
     `<nav class="tabs">` +
     tab('gear', t(settings.lang, 'ui.tabGear')) +
     tab('log', t(settings.lang, 'ui.tabLog')) +
     tab('dpad', t(settings.lang, 'ui.tabDpad')) +
+    // 設定だけは歯車で示す。文字にすると他の3つより幅を取り、
+    // 毎ターン使うタブが押しにくくなる。
+    tab('settings', '&#9881;', t(settings.lang, 'ui.settings')) +
     `</nav>`
   );
 }
@@ -198,7 +204,15 @@ function renderEquipment(state: GameState, settings: Settings): string {
       `${tip}</li>`
     );
   }).join('');
-  return `<section class="panel panel--equipment"><h2 class="panel__title">${t(settings.lang, 'ui.equipment')}</h2><ul class="gear__list">${rows}</ul></section>`;
+  // パークは装備の続きとして同じパネルに畳む。見出しをもう1つ立てると、
+  // 中身より枠の方が高さを食う（狭い画面ではその差が盤面の一辺に効く）。
+  return (
+    `<section class="panel panel--equipment">` +
+    `<h2 class="panel__title">${t(settings.lang, 'ui.equipment')}</h2>` +
+    `<ul class="gear__list">${rows}</ul>` +
+    renderPerks(state, settings) +
+    `</section>`
+  );
 }
 
 /**
@@ -277,7 +291,16 @@ function renderItems(state: GameState, settings: Settings, selectedSlot: number 
   return `<section class="panel panel--items"><h2 class="panel__title">${t(settings.lang, 'ui.items')}</h2><ul class="items__list">${slots}</ul></section>`;
 }
 
-/** 取得済みのパーク。同じものを重ねて取れるので個数をまとめて出す。 */
+/**
+ * 取得済みのパーク。同じものを重ねて取れるので個数をまとめて出す。
+ *
+ * 名前を並べると、10 個も取った頃には装備欄より背が高くなる。アイコンなら
+ * 数が増えても1行に収まり、狭い画面でも盤面を削らない。
+ *
+ * 中身のない `<button>` にするのは、ホバーできない端末で名前を読ませるため。
+ * タップでフォーカスが乗り、CSS がそれを見て説明を出す（→ main.css の .tip）。
+ * `data-*` を持たないので、main.ts のクリック委譲には拾われない。
+ */
 function renderPerks(state: GameState, settings: Settings): string {
   if (state.player.perks.length === 0) return '';
 
@@ -286,12 +309,24 @@ function renderPerks(state: GameState, settings: Settings): string {
 
   const tags = [...counts.entries()]
     .map(([perk, count]) => {
-      const name = escapeHtml(t(settings.lang, `perk.${perk}` as const));
+      const name = t(settings.lang, `perk.${perk}` as const);
+      const desc = t(settings.lang, `perkDesc.${perk}` as const);
+      const label = count > 1 ? `${name} ×${count}` : name;
       const badge = count > 1 ? `<span class="perk__count">&times;${count}</span>` : '';
-      return `<li class="perk">${name}${badge}</li>`;
+      return (
+        `<li class="perk">` +
+        `<button class="perk__btn" type="button" aria-label="${escapeHtml(label)}">` +
+        `<svg class="perk__icon" viewBox="0 0 1 1" shape-rendering="crispEdges" aria-hidden="true">` +
+        `<use href="#${perkSpriteId(perk)}" width="1" height="1"/></svg>` +
+        `${badge}</button>` +
+        `<span class="tip" role="tooltip">` +
+        `<span class="tip__name">${escapeHtml(label)}</span>` +
+        `<span class="tip__desc">${escapeHtml(desc)}</span>` +
+        `</span></li>`
+      );
     })
     .join('');
-  return `<section class="panel panel--perks"><h2 class="panel__title">${t(settings.lang, 'ui.perks')}</h2><ul class="perk__list">${tags}</ul></section>`;
+  return `<ul class="perk__list" aria-label="${escapeHtml(t(settings.lang, 'ui.perks'))}">${tags}</ul>`;
 }
 
 function renderLog(state: GameState, settings: Settings): string {

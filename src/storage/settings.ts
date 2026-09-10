@@ -29,22 +29,18 @@ export interface Settings {
    * 抱えるより素直で、再描画で消えることもない。
    */
   panel: PanelTab;
-  /**
-   * 設定行を開いているか（狭い画面での折りたたみ）。
-   *
-   * `panel` と同じ理由でここに置く。UI に一時的な状態を抱えると
-   * 毎ターンの再描画で閉じてしまい、言語を変えるたびに開き直しになる。
-   */
-  settingsOpen: boolean;
 }
 
 /**
  * サイドパネルのタブ。
  *
- * 狭い画面では装備・ログ・方向キーが同じ高さを奪い合う。1つだけ見せることで
+ * 狭い画面では装備・ログ・方向キー・設定が同じ高さを奪い合う。1つだけ見せることで
  * iPhone の縦画面でもスクロールせずに全部へ手が届く。
+ *
+ * 設定もここに混ぜる。専用の開閉ボタンを別行に置くと、それだけで
+ * 1行ぶんの高さを常時奪う（盤面はその1行を削って描かれる）。
  */
-export type PanelTab = 'gear' | 'log' | 'dpad';
+export type PanelTab = 'gear' | 'log' | 'dpad' | 'settings';
 
 /** バージョンをキー名に含める。スキーマを変えた時に旧データを壊さず無視できる。 */
 const STORAGE_KEY = 'delve.settings.v1';
@@ -55,12 +51,12 @@ function detectLang(): Lang {
 }
 
 export function defaultSettings(): Settings {
-  return { lang: detectLang(), dpad: 'auto', sound: false, panel: 'gear', settingsOpen: false };
+  return { lang: detectLang(), dpad: 'auto', sound: false, panel: 'gear' };
 }
 
 const LANGS: readonly Lang[] = ['en', 'ja'];
 const DPAD_MODES: readonly DpadMode[] = ['auto', 'on', 'off'];
-const PANEL_TABS: readonly PanelTab[] = ['gear', 'log', 'dpad'];
+const PANEL_TABS: readonly PanelTab[] = ['gear', 'log', 'dpad', 'settings'];
 
 export function loadSettings(): Settings {
   const fallback = defaultSettings();
@@ -78,9 +74,7 @@ export function loadSettings(): Settings {
     const dpad = DPAD_MODES.find((v) => v === record['dpad']) ?? fallback.dpad;
     const sound = typeof record['sound'] === 'boolean' ? record['sound'] : fallback.sound;
     const panel = PANEL_TABS.find((v) => v === record['panel']) ?? fallback.panel;
-    const settingsOpen =
-      typeof record['settingsOpen'] === 'boolean' ? record['settingsOpen'] : fallback.settingsOpen;
-    return { lang, dpad, sound, panel, settingsOpen };
+    return { lang, dpad, sound, panel };
   } catch {
     return fallback;
   }

@@ -162,30 +162,17 @@ kbd {
   gap: 14px;
 }
 
-.settings__body {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-
 /*
- * 折りたたみの見出し。広い画面では畳む必要がないので、ボタンごと消して
- * 中身を常に見せる。開閉状態（data-open）はそのとき参照されない。
+ * 盤面タップの案内。指で触れる端末にだけ出す（→ 下の pointer: coarse）。
+ * 毎ターン読むものではないので、フッターに常駐させずここに畳む。
  */
-.settings__toggle {
+.settings__hint {
   display: none;
-  padding: 3px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: transparent;
+  flex-basis: 100%;
+  margin: 0;
   color: var(--text-dim);
-  font: inherit;
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  letter-spacing: 0.04em;
 }
 
 .settings__group {
@@ -344,32 +331,50 @@ kbd {
 /* --- パーク ---------------------------------------------------------------- */
 
 /*
- * パークは取るほど増える。ここだけスクロールさせる。
+ * パークは絵だけを並べ、装備パネルの続きに畳む。
  *
- * 上限をサイドパネル全体に置くと、ツールチップ（.tip）は絶対配置で
- * スロットの上に出るので**スクロール枠に切り取られて読めなくなる**。
- * タッチの「1回目のタップで説明」がそこで死ぬので、
- * 上限は tip を持たないリスト（パークとログ）にだけ置く。
+ * 名前で並べていた頃は、取るほど背が高くなるので上限とスクロールが要った。
+ * アイコンなら同じものが個数にまとまるので、**種類の数（10）で頭打ちになる**。
+ * 高さが有界になったぶん、切り取る枠を持たずに済む —
+ * ツールチップ（.tip）は絶対配置なので、スクロール枠に入れると読めなくなる。
  */
 .perk__list {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin: 0;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
-  max-height: 76px;
-  overflow-y: auto;
 }
 
 .perk {
-  display: inline-flex;
+  position: relative;
+}
+
+/*
+ * 押しても何も起きないボタンにする。
+ *
+ * ホバーできない端末では、タップでフォーカスを乗せる以外に名前を出す手がない。
+ * `data-*` を持たないので main.ts のクリック委譲には拾われず、ターンも進まない。
+ */
+.perk__btn {
+  display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
+  gap: 2px;
+  padding: 1px 4px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 11px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+  cursor: help;
+}
+
+.perk__icon {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 .perk__count {
@@ -1004,7 +1009,12 @@ kbd {
    隣接セレクタでは一致せず、Tab でフォーカスしても説明が出なくなる。 */
 .slot__btn:focus-visible ~ .tip,
 .slot--selected .tip,
-.gear--filled:hover .tip {
+.gear--filled:hover .tip,
+.perk:hover .tip,
+/* パークは絵だけなので、名前を出す手段が説明しかない。
+   ホバーできない端末ではタップでフォーカスが乗るので :focus で拾う
+   （:focus-visible はタップで一致しないことがあり、そこで名前が読めなくなる）。 */
+.perk__btn:focus ~ .tip {
   opacity: 1;
 }
 
@@ -1037,6 +1047,18 @@ kbd {
 /* 装備は縦並びなので左端に揃える */
 .gear .tip {
   left: 0;
+  transform: none;
+}
+
+/* パークは横一列に並ぶので、両端だけ内側へ寄せる。中央寄せのままだと画面外へ出る。 */
+.perk:first-child .tip {
+  left: 0;
+  transform: none;
+}
+
+.perk:last-child .tip {
+  left: auto;
+  right: 0;
   transform: none;
 }
 
@@ -1347,9 +1369,15 @@ kbd {
 
 /* ブレークポイントは1箇所だけ。中間状態を増やすと検証コストが跳ね上がる。 */
 @media (max-width: 900px) {
-  /* iPhone の縦画面に HUD + 盤面 + パネル + 設定を収めるため余白を詰める */
+  /* iPhone の縦画面に HUD + 盤面 + パネル を収めるため余白を詰める */
   :root {
     --gap: 8px;
+    /*
+     * サイドパネル1タブぶんの高さ。方向キー3行（46px × 3 + 6px × 2）が基準。
+     * ログもこれに揃える — タブごとに高さが変わると、切り替えるたびに
+     * 盤面が伸び縮みして、同じマスが毎回違う位置に来る。
+     */
+    --tab-h: 150px;
   }
 
   /*
@@ -1367,6 +1395,53 @@ kbd {
     height: 100dvh;
     padding-bottom: calc(var(--gap) + env(safe-area-inset-bottom, 0px));
     overflow: hidden;
+  }
+
+  /*
+   * HUD は1行に畳む。ここで折り返すと、その2行目のぶんだけ盤面の一辺が縮む
+   * （縦が足りない端末では、1行が 1マスぶんの大きさに直結する）。
+   *
+   * 落とすのはバーと標語だけで、数値は全部残す。HP と EXP は
+   * 「あとどれだけか」が読めれば足りるので、絵がなくても情報は欠けない。
+   */
+  .hud {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .hud__tagline {
+    display: none;
+  }
+
+  .hud__title {
+    font-size: 15px;
+    letter-spacing: 0.14em;
+  }
+
+  .hud__stats {
+    flex: 1;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .hud__stat {
+    gap: 3px;
+  }
+
+  .hud__meter {
+    display: none;
+  }
+
+  .hud__label {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+  }
+
+  .hud__value {
+    font-size: 11px;
   }
 
   /* 盤面が残りの高さを取り、パネル・ヒント・設定は内容ぶんだけ下に積む。 */
@@ -1401,30 +1476,44 @@ kbd {
    * パネル自体はスクロールさせない。**ここに overflow を置くと、
    * アイテムのツールチップが枠に切り取られて一切読めなくなる。**
    *
-   * 「パネルが縦を食い尽くして盤面が潰れる」問題は、伸びる中身
-   * （ログとパーク）にだけ上限を置いて解く。装備とアイテムは行数が
-   * 決まっているので、この2つを抑えればパネルの高さは有界になる。
+   * 「パネルが縦を食い尽くして盤面が潰れる」問題は、伸びる中身（ログ）にだけ
+   * 上限を置いて解く。装備・パーク・アイテムは行数が構造的に決まっているので、
+   * ログさえ抑えればパネルの高さは有界になる。
    */
   .stage__side {
     min-height: 0;
   }
 
   .hud__stat--bar {
-    min-width: 150px;
+    min-width: 0;
   }
 
   /* 狭い画面では縦に積むと情報量が多すぎるので、タブで切り替える。
      装備を見るのとログを読むのは別の目的なので、同時に見えている必要がない。
-     方向キーも同じ枠を奪い合わせることで、必ず1つぶんの高さで済む。 */
+     方向キーと設定も同じ枠を奪い合わせることで、必ず1つぶんの高さで済む。 */
   .tabs {
     display: flex;
   }
 
-  /* ログだけは行数ぶん伸びるので上限を置く。column-reverse なので、
-     溢れていても最新の行が見えたまま古い方へ遡れる。 */
+  /* 設定タブは歯車1文字なので、他の3つに幅を譲る。 */
+  .tab--settings {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  /* ログは行数ぶん伸びるので方向キーと同じ高さで止める。column-reverse なので、
+     溢れていても最新の行が見えたまま古い方へ遡れる。
+     引く 44px は枠の取り分（上下の padding 20px + 見出し 16px + その下の 8px）。 */
   .log__list {
-    max-height: 26dvh;
+    max-height: calc(var(--tab-h) - 44px);
     overflow-y: auto;
+  }
+
+  /* パークは横に流す。折り返すと、取った数だけ装備タブの背が伸びる。 */
+  .perk__list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
   }
 
   .ach__list {
@@ -1437,17 +1526,19 @@ kbd {
     gap: 6px;
   }
 
+  /*
+   * 設定はサイドパネルの外（フッターの下）に置いたままだが、扱いはタブの一員。
+   * 選ばれていない間は消え、選ばれたら他の3つと入れ替わる。
+   * 開閉ボタンを別に持たせると、閉じている間もその1行を盤面から奪い続ける。
+   */
   .settings {
+    display: none;
     width: 100%;
     justify-content: flex-start;
   }
 
-  .settings__toggle {
-    display: block;
-  }
-
-  .settings[data-open='false'] .settings__body {
-    display: none;
+  :root[data-panel='settings'] .settings {
+    display: flex;
   }
 }
 
@@ -1479,20 +1570,32 @@ kbd {
  * タブによる出し分けは**方向キーの表示条件より後**に置く。
  * 同じ詳細度なので、先に書くと data-dpad の指定に上書きされ、
  * 装備を見ているのに方向キーも並んで出る（実際にそうなっていた）。
+ *
+ * 選んでいるタブは `<html data-panel>` の1箇所だけが持つ。設定欄は
+ * サイドパネルの外にあるので、aside 側に持たせると条件が二重化する。
  */
 @media (max-width: 900px) {
-  .stage__side[data-tab='gear'] .side__group--log,
-  .stage__side[data-tab='gear'] .side__group--dpad,
-  .stage__side[data-tab='log'] .side__group--gear,
-  .stage__side[data-tab='log'] .side__group--dpad,
-  .stage__side[data-tab='dpad'] .side__group--log {
+  :root[data-panel='gear'] .side__group--log,
+  :root[data-panel='gear'] .side__group--dpad,
+  :root[data-panel='log'] .side__group--gear,
+  :root[data-panel='log'] .side__group--dpad,
+  :root[data-panel='dpad'] .side__group--log,
+  :root[data-panel='settings'] .side__group--gear,
+  :root[data-panel='settings'] .side__group--log,
+  :root[data-panel='settings'] .side__group--dpad {
     display: none;
   }
 
-  .stage__side[data-tab='gear'] .side__group--gear {
+  :root[data-panel='gear'] .side__group--gear {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
+  }
+
+  /* 継続効果だけは横1行に寝かせる。2列のどちらかに入れると、
+     効果が付いている間だけタブの背が伸びて盤面が縮む。 */
+  :root[data-panel='gear'] .panel--status {
+    grid-column: 1 / -1;
   }
 
   /*
@@ -1504,40 +1607,40 @@ kbd {
    * 描くと data-use-slot が DOM に2つ並び、選択中のスロットが二重に出る。
    * 出す・出さないはパネル単位で決める。
    */
-  .stage__side[data-tab='dpad'] {
+  :root[data-panel='dpad'] .stage__side {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--gap);
     align-items: start;
   }
 
-  .stage__side[data-tab='dpad'] .tabs {
+  :root[data-panel='dpad'] .tabs {
     grid-column: 1 / -1;
   }
 
   /* 行と列を明示する。自動配置は DOM 順（gear が先）に引きずられ、
      方向キーが次の行へこぼれる。 */
-  .stage__side[data-tab='dpad'] .side__group--dpad {
+  :root[data-panel='dpad'] .side__group--dpad {
     grid-column: 1;
     grid-row: 2;
   }
 
-  .stage__side[data-tab='dpad'] .side__group--gear {
+  :root[data-panel='dpad'] .side__group--gear {
     grid-column: 2;
     grid-row: 2;
     display: flex;
   }
 
-  .stage__side[data-tab='dpad'] .panel--status,
-  .stage__side[data-tab='dpad'] .panel--equipment,
-  .stage__side[data-tab='dpad'] .panel--perks {
+  :root[data-panel='dpad'] .panel--status,
+  :root[data-panel='dpad'] .panel--equipment {
     display: none;
   }
 
-  /* 半分の幅に収めるので、方向キーも1回り小さくする。 */
-  .stage__side[data-tab='dpad'] .dpad {
+  /* 半分の幅に収めるので、方向キーも1回り小さくする。
+     3行ぶんがタブ1つぶんの高さ（--tab-h）になる。 */
+  :root[data-panel='dpad'] .dpad {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(3, 46px);
+    grid-template-rows: repeat(3, calc((var(--tab-h) - 12px) / 3));
     justify-content: stretch;
   }
 }
@@ -1573,24 +1676,18 @@ kbd {
   }
 }
 
-/* 盤面タップの案内は指で触れる端末にだけ出す。 */
-.hint__tap {
-  display: none;
-}
-
-/* タッチ端末でキーボードの案内を出しても意味がない。標語は場所を譲る。 */
+/*
+ * タッチ端末でキーボードの案内を出しても意味がない。
+ * フッターは中身が全部消えるので、枠ごと畳んで1行を盤面に返す。
+ * 盤面タップの案内は設定タブの中に移してある（→ .settings__hint）。
+ */
 @media (pointer: coarse) {
-  .hint__keys,
-  .hint__motto {
+  .hint {
     display: none;
   }
 
-  .hint__tap {
-    display: inline;
-  }
-
-  .hint {
-    justify-content: center;
+  .settings__hint {
+    display: block;
   }
 }
 

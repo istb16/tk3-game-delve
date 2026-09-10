@@ -7,7 +7,8 @@ import { t } from './i18n';
  *
  * 数値の見出し（HP / EXP / FLOOR / LV / GOLD）は両言語とも英語のまま。
  * 短く自明で、日本語にすると却って読み取りが遅くなるため（→ i18n.ts の方針）。
- * 色とバーだけに情報を載せず、数値を必ず併記する。
+ * 色とバーだけに情報を載せず、数値を必ず併記する。狭い画面では
+ * バーの方を落として1行に収める（→ main.css）。数値が残るので情報は失われない。
  */
 export function renderHud(state: GameState, settings: Settings): string {
   const p = state.player;
@@ -37,18 +38,18 @@ export function renderHud(state: GameState, settings: Settings): string {
  * 画面の**最下部**に置く。プレイ中に触るものではないので、盤面や HUD の
  * 近くに置くと視線と指の通り道を占領してしまう。
  *
- * 狭い画面では既定で畳んでおく。3グループぶんの高さは、スマートフォンの
- * 縦画面では盤面を削ってまで常時見せる価値がない。開閉状態は `Settings` が持つ
- * （毎ターンの再描画で閉じると、言語を変えるたびに開き直しになる）。
+ * 狭い画面ではサイドパネルの4つ目のタブとして扱う（→ main.css の
+ * `:root[data-panel='settings']`）。開閉ボタンを別に持つと、閉じている間も
+ * その1行ぶんの高さを常時奪い、盤面がそのぶん小さくなる。
+ * タブがボタンを兼ねるので、UI にも Settings にも開閉状態を持たない。
+ *
+ * 盤面タップの案内もここに畳む。毎ターン読むものではないので、
+ * フッターに常駐させる価値がない。
  */
 export function renderSettings(settings: Settings): string {
   const lang = settings.lang;
   return `
-    <div class="settings" role="group" aria-label="${t(lang, 'ui.settings')}"
-      data-open="${settings.settingsOpen}">
-      <button class="settings__toggle" data-toggle-settings
-        aria-expanded="${settings.settingsOpen}">&#9881; ${t(lang, 'ui.settings')}</button>
-      <div class="settings__body">
+    <div class="settings" role="group" aria-label="${t(lang, 'ui.settings')}">
       <div class="settings__group">
         <span class="settings__label">${t(lang, 'ui.language')}</span>
         ${langButton('en', 'EN', settings.lang)}
@@ -64,7 +65,7 @@ export function renderSettings(settings: Settings): string {
         <span class="settings__label">${t(lang, 'ui.sound')}</span>
         ${soundButton(settings.sound, lang)}
       </div>
-      </div>
+      <p class="settings__hint">${t(lang, 'ui.tapMove')}</p>
     </div>
   `;
 }
