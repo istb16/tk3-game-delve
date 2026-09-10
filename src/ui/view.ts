@@ -171,7 +171,7 @@ function renderStatus(state: GameState, settings: Settings): string {
       return `<li class="status status--${effect.kind}">${name}<span class="status__turns">${effect.turns}</span></li>`;
     })
     .join('');
-  return `<section class="panel"><h2 class="panel__title">${t(settings.lang, 'ui.status')}</h2><ul class="status__list">${tags}</ul></section>`;
+  return `<section class="panel panel--status"><h2 class="panel__title">${t(settings.lang, 'ui.status')}</h2><ul class="status__list">${tags}</ul></section>`;
 }
 
 const SLOTS: readonly Slot[] = ['weapon', 'armor', 'ring'];
@@ -198,7 +198,7 @@ function renderEquipment(state: GameState, settings: Settings): string {
       `${tip}</li>`
     );
   }).join('');
-  return `<section class="panel"><h2 class="panel__title">${t(settings.lang, 'ui.equipment')}</h2><ul class="gear__list">${rows}</ul></section>`;
+  return `<section class="panel panel--equipment"><h2 class="panel__title">${t(settings.lang, 'ui.equipment')}</h2><ul class="gear__list">${rows}</ul></section>`;
 }
 
 /**
@@ -274,7 +274,7 @@ function renderItems(state: GameState, settings: Settings, selectedSlot: number 
       );
     })
     .join('');
-  return `<section class="panel"><h2 class="panel__title">${t(settings.lang, 'ui.items')}</h2><ul class="items__list">${slots}</ul></section>`;
+  return `<section class="panel panel--items"><h2 class="panel__title">${t(settings.lang, 'ui.items')}</h2><ul class="items__list">${slots}</ul></section>`;
 }
 
 /** 取得済みのパーク。同じものを重ねて取れるので個数をまとめて出す。 */
@@ -291,7 +291,7 @@ function renderPerks(state: GameState, settings: Settings): string {
       return `<li class="perk">${name}${badge}</li>`;
     })
     .join('');
-  return `<section class="panel"><h2 class="panel__title">${t(settings.lang, 'ui.perks')}</h2><ul class="perk__list">${tags}</ul></section>`;
+  return `<section class="panel panel--perks"><h2 class="panel__title">${t(settings.lang, 'ui.perks')}</h2><ul class="perk__list">${tags}</ul></section>`;
 }
 
 function renderLog(state: GameState, settings: Settings): string {
