@@ -9,7 +9,7 @@ import type {
   StatMods,
 } from '../core/types';
 import { ACHIEVEMENT_IDS } from '../data/achievements';
-import type { Settings } from '../storage/settings';
+import type { PanelTab, Settings } from '../storage/settings';
 import type { RunOutcome, SaveData } from '../storage/save';
 import { computeScore } from '../storage/save';
 import { renderBoard } from './board';
@@ -57,14 +57,17 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
         <div class="side__group side__group--log">
           ${renderLog(state, settings)}
         </div>
+        <div class="side__group side__group--dpad">
+          ${renderDpad(settings)}
+        </div>
       </aside>
     </main>
     <footer class="hint">
       <span class="hint__keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> ${t(settings.lang, 'ui.move')}</span>
       <span class="hint__keys"><kbd>1</kbd>-<kbd>8</kbd> ${t(settings.lang, 'ui.useItemHint')} / <kbd>Shift</kbd>+<kbd>1</kbd>-<kbd>8</kbd> ${t(settings.lang, 'ui.drop')}</span>
-      <span>${t(settings.lang, 'ui.motto')}</span>
+      <span class="hint__tap">${t(settings.lang, 'ui.tapMove')}</span>
+      <span class="hint__motto">${t(settings.lang, 'ui.motto')}</span>
     </footer>
-    ${renderDpad(settings)}
     ${renderSettings(settings)}
     ${state.phase === 'choosing' ? renderChoiceModal(state, settings) : ''}
     ${state.phase === 'dead' ? renderDeathModal(state, ctx) : ''}
@@ -110,18 +113,22 @@ function renderFx(state: GameState): string {
 }
 
 /**
- * 狭い画面でサイドパネルが縦に伸びすぎるので、装備側とログ側を切り替える。
+ * 狭い画面ではサイドパネルの中身が縦に伸びすぎるので、装備・ログ・方向キーを
+ * 切り替える。3つが同じ高さを奪い合う形にすることで、iPhone の縦画面でも
+ * スクロールせずに全部へ手が届く。
+ *
  * 選択は設定として保存する — 一度選んだ見た目が次に開いた時も残る。
  */
 function renderTabs(settings: Settings): string {
-  const tab = (id: 'gear' | 'log', label: string) =>
-    `<button class="tab${settings.panel === id ? ' tab--active' : ''}" data-set-panel="${id}"` +
-    ` aria-pressed="${settings.panel === id}">${label}</button>`;
+  const tab = (id: PanelTab, label: string) =>
+    `<button class="tab tab--${id}${settings.panel === id ? ' tab--active' : ''}"` +
+    ` data-set-panel="${id}" aria-pressed="${settings.panel === id}">${label}</button>`;
 
   return (
     `<nav class="tabs">` +
     tab('gear', t(settings.lang, 'ui.tabGear')) +
     tab('log', t(settings.lang, 'ui.tabLog')) +
+    tab('dpad', t(settings.lang, 'ui.tabDpad')) +
     `</nav>`
   );
 }
@@ -304,6 +311,9 @@ function renderLog(state: GameState, settings: Settings): string {
 /**
  * 方向パッド。表示可否は settings.dpad と CSS のメディアクエリで決まる（→ main.css）。
  * 'auto' のときだけ画面サイズとポインタ種別で自動判定する。
+ *
+ * 中央に待機ボタンは置かない。十字の真ん中に「動かない」を置いても意味が読めず、
+ * 誤爆の的にしかならなかった（Issue #2）。待機は自分のマスをタップする方に寄せた。
  */
 function renderDpad(settings: Settings): string {
   const lang = settings.lang;
@@ -314,7 +324,6 @@ function renderDpad(settings: Settings): string {
     <nav class="dpad" aria-label="${t(lang, 'ui.move')}">
       ${btn('up', t(lang, 'aria.moveUp'), '&uarr;')}
       ${btn('left', t(lang, 'aria.moveLeft'), '&larr;')}
-      ${btn('wait', t(lang, 'aria.wait'), '&bull;')}
       ${btn('right', t(lang, 'aria.moveRight'), '&rarr;')}
       ${btn('down', t(lang, 'aria.moveDown'), '&darr;')}
     </nav>

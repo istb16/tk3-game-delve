@@ -162,6 +162,32 @@ kbd {
   gap: 14px;
 }
 
+.settings__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+/*
+ * 折りたたみの見出し。広い画面では畳む必要がないので、ボタンごと消して
+ * 中身を常に見せる。開閉状態（data-open）はそのとき参照されない。
+ */
+.settings__toggle {
+  display: none;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 .settings__group {
   display: flex;
   align-items: center;
@@ -219,6 +245,11 @@ kbd {
   width: 100%;
   height: auto;
   aspect-ratio: 1;
+  /* 盤面そのものが移動の操作面。タップの半透明ハイライトと
+     ダブルタップ拡大を抑えないと、続けて歩くたびに画面が跳ねる。 */
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* --- 盤面（ドット絵） ------------------------------------------------------ */
@@ -508,7 +539,6 @@ kbd {
   grid-template-rows: repeat(3, 58px);
   justify-content: center;
   gap: 8px;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 :root[data-dpad='on'] .dpad {
@@ -543,10 +573,6 @@ kbd {
   grid-area: 2 / 1;
 }
 
-.dpad__btn--wait {
-  grid-area: 2 / 2;
-}
-
 .dpad__btn--right {
   grid-area: 2 / 3;
 }
@@ -564,6 +590,9 @@ kbd {
   place-items: center;
   padding: 20px;
   background: rgb(6 8 12 / 0.82);
+  /* 狭い画面では body のスクロールを止めているので、溢れる分はここで送る。
+     リザルトは実績一覧を抱えるため、縦画面では画面より高くなる。 */
+  overflow-y: auto;
 }
 
 .modal__panel {
@@ -1197,38 +1226,96 @@ kbd {
   gap: var(--gap);
 }
 
+/*
+ * 方向キーはサイドパネルの1グループとして置く。表示条件は2つの掛け算になる。
+ *   1. 方向キー自体が有効か（data-dpad の設定・メディアクエリ）
+ *   2. 狭い画面でそのタブを選んでいるか
+ * 無効なときはタブごと隠す。押せるのに何も出ないタブを残さないため。
+ */
+.side__group--dpad,
+.tab--dpad {
+  display: none;
+}
+
+:root[data-dpad='on'] .side__group--dpad {
+  display: flex;
+}
+
 /* --- レスポンシブ --------------------------------------------------------- */
 
 /* ブレークポイントは1箇所だけ。中間状態を増やすと検証コストが跳ね上がる。 */
 @media (max-width: 900px) {
+  /* iPhone の縦画面に HUD + 盤面 + パネル + 設定を収めるため余白を詰める */
+  :root {
+    --gap: 8px;
+  }
+
+  /*
+   * スマートフォンでは1画面に収め、ページスクロールを起こさない（Issue #2）。
+   * 100dvh を使う — 100vh はアドレスバーが隠れる前提の高さなので、
+   * iOS Safari では画面下がツールバーの裏に回り、方向キーが押せなくなる。
+   */
+  html,
+  body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  #app {
+    height: 100dvh;
+    padding-bottom: calc(var(--gap) + env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+  }
+
+  /* 盤面が残りの高さを取り、パネル・ヒント・設定は内容ぶんだけ下に積む。 */
   .stage {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 0;
+    flex: 1;
+    /* 広い画面の align-items:start を打ち消す。
+       盤面のマスは行の高さいっぱいまで伸びて初めて残り高さに収まる。 */
+    align-items: stretch;
+  }
+
+  /*
+   * 盤面は「幅」と「残りの高さ」の小さい方に合わせる。
+   * コンテナのサイズを直接参照できるので、JS で高さを測る必要がない。
+   * cqh に対応しない古いブラウザではこの宣言だけが無視され、
+   * 上の width:100%（＝従来どおり縦スクロール）に落ちる。
+   */
+  .stage__board {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    container-type: size;
+  }
+
+  .board {
+    width: min(100%, 100cqh);
+  }
+
+  /*
+   * パネルに上限を置き、余りは必ず盤面に回す。
+   * 上限がないと、装備とアイテムを開いた瞬間にパネルが縦を食い尽くし、
+   * iPhone SE では盤面が 100px まで潰れて何も見えなくなる。
+   * 溢れた分はパネルの中でスクロールさせる（ページは動かさない）。
+   */
+  .stage__side {
+    min-height: 0;
+    max-height: 34dvh;
+    overflow-y: auto;
   }
 
   .hud__stat--bar {
     min-width: 150px;
   }
 
-  .log__list {
-    max-height: 76px;
-    overflow-y: auto;
-  }
-
   /* 狭い画面では縦に積むと情報量が多すぎるので、タブで切り替える。
-     装備を見るのとログを読むのは別の目的なので、同時に見えている必要がない。 */
+     装備を見るのとログを読むのは別の目的なので、同時に見えている必要がない。
+     方向キーも同じ枠を奪い合わせることで、必ず1つぶんの高さで済む。 */
   .tabs {
     display: flex;
-  }
-
-  .stage__side[data-tab='gear'] .side__group--log,
-  .stage__side[data-tab='log'] .side__group--gear {
-    display: none;
-  }
-
-  .stage__side[data-tab='gear'] .side__group--gear {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
   }
 
   .log__list {
@@ -1238,39 +1325,87 @@ kbd {
   .ach__list {
     grid-template-columns: 1fr;
   }
-}
 
-/* 'auto' はタッチ端末か狭い画面で出す。iPhone は両方に該当する。 */
-@media (pointer: coarse), (max-width: 900px) {
-  :root[data-dpad='auto'] .dpad {
-    display: grid;
-  }
-}
-
-@media (max-width: 900px) {
-  /* iPhone の縦画面に HUD + 盤面 + ログ + 方向パッドを収めるため余白を詰める */
-  :root {
-    --gap: 8px;
-  }
-
-  /* 方向パッドは通常フローの最後に置く。sticky にすると直前のヒント行に重なる。 */
   .dpad {
     grid-template-columns: repeat(3, 52px);
     grid-template-rows: repeat(3, 52px);
     gap: 6px;
-    margin-top: auto;
   }
 
   .settings {
     width: 100%;
     justify-content: flex-start;
   }
+
+  .settings__toggle {
+    display: block;
+  }
+
+  .settings[data-open='false'] .settings__body {
+    display: none;
+  }
 }
 
-/* タッチ端末でキーボードの案内を出しても意味がないので、標語だけ残す。 */
-@media (pointer: coarse) {
-  .hint__keys {
+/* 'auto' はタッチ端末か狭い画面で出す。iPhone は両方に該当する。 */
+@media (pointer: coarse), (max-width: 900px) {
+  :root[data-dpad='auto'] .side__group--dpad {
+    display: flex;
+  }
+
+  :root[data-dpad='auto'] .dpad {
+    display: grid;
+  }
+}
+
+/*
+ * 方向キーのタブは、その方向キーが出る条件と揃える。
+ * タブはそもそも狭い画面にしか出ないので、ここで幅を重ねて見るだけでよい —
+ * グループ側の条件（上）と食い違うと、方向キーはあるのに切り替える手段がない、
+ * という到達できない状態が生まれる。
+ */
+@media (max-width: 900px) {
+  :root[data-dpad='on'] .tab--dpad,
+  :root[data-dpad='auto'] .tab--dpad {
+    display: block;
+  }
+}
+
+/*
+ * タブによる出し分けは**方向キーの表示条件より後**に置く。
+ * 同じ詳細度なので、先に書くと data-dpad の指定に上書きされ、
+ * 装備を見ているのに方向キーも並んで出る（実際にそうなっていた）。
+ */
+@media (max-width: 900px) {
+  .stage__side[data-tab='gear'] .side__group--log,
+  .stage__side[data-tab='gear'] .side__group--dpad,
+  .stage__side[data-tab='log'] .side__group--gear,
+  .stage__side[data-tab='log'] .side__group--dpad,
+  .stage__side[data-tab='dpad'] .side__group--gear,
+  .stage__side[data-tab='dpad'] .side__group--log {
     display: none;
+  }
+
+  .stage__side[data-tab='gear'] .side__group--gear {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+/* 盤面タップの案内は指で触れる端末にだけ出す。 */
+.hint__tap {
+  display: none;
+}
+
+/* タッチ端末でキーボードの案内を出しても意味がない。標語は場所を譲る。 */
+@media (pointer: coarse) {
+  .hint__keys,
+  .hint__motto {
+    display: none;
+  }
+
+  .hint__tap {
+    display: inline;
   }
 
   .hint {
