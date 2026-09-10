@@ -581,6 +581,90 @@ kbd {
   grid-area: 3 / 2;
 }
 
+/* --- トースト ------------------------------------------------------------- */
+
+/*
+ * ログのパネルが隠れている間、新しい行を右上に短く流す（→ ui/toast.ts）。
+ * 要素は body 直下に生えるので、render() の innerHTML 差し替えでは消えない。
+ */
+.toasts {
+  position: fixed;
+  /*
+   * HUD には重ねない。HP と GOLD が読めなくなっては、
+   * ログを見せるために肝心の数字を潰したことになる。
+   * HUD の高さは狭い画面で 15〜18dvh に収まるので、その下から積む。
+   * JS で測ると、リサイズと回転のたびに測り直す仕掛けが要る。
+   */
+  top: calc(env(safe-area-inset-top, 0px) + 21dvh);
+  right: 10px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  max-width: min(62vw, 320px);
+  /* 盤面の上に重なる。ここでタップを吸うと、右上の角だけ歩けなくなる。 */
+  pointer-events: none;
+}
+
+.toast {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: right;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.45);
+  animation: toast-in 160ms ease-out;
+}
+
+/* 色はログ行と同じ対応にする。ログとトーストで色が違うと、
+   同じ出来事だと分からなくなる。 */
+.toast--good {
+  border-left-color: var(--heal);
+  color: var(--heal);
+}
+
+.toast--bad {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+
+.toast--gold {
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+
+.toast--system {
+  border-left-color: var(--info);
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.toast--out {
+  opacity: 0;
+  transform: translateX(10px);
+  transition:
+    opacity 220ms ease-in,
+    transform 220ms ease-in;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* --- モーダル ------------------------------------------------------------- */
 
 .modal {
@@ -1380,7 +1464,6 @@ kbd {
   .stage__side[data-tab='gear'] .side__group--dpad,
   .stage__side[data-tab='log'] .side__group--gear,
   .stage__side[data-tab='log'] .side__group--dpad,
-  .stage__side[data-tab='dpad'] .side__group--gear,
   .stage__side[data-tab='dpad'] .side__group--log {
     display: none;
   }
@@ -1389,6 +1472,52 @@ kbd {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
+  }
+
+  /*
+   * 方向キーのタブは「歩く」と「使う」を一度に置く。
+   * 左に方向キー、右にアイテム — 装備タブで EQUIPMENT があった場所に
+   * 方向キーが来る形。歩いている最中に回復したいとき、タブを往復せずに済む。
+   *
+   * アイテムだけは gear グループから借りる。同じ ITEMS を方向キー側にも
+   * 描くと data-use-slot が DOM に2つ並び、選択中のスロットが二重に出る。
+   * 出す・出さないはパネル単位で決める。
+   */
+  .stage__side[data-tab='dpad'] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--gap);
+    align-items: start;
+  }
+
+  .stage__side[data-tab='dpad'] .tabs {
+    grid-column: 1 / -1;
+  }
+
+  /* 行と列を明示する。自動配置は DOM 順（gear が先）に引きずられ、
+     方向キーが次の行へこぼれる。 */
+  .stage__side[data-tab='dpad'] .side__group--dpad {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .stage__side[data-tab='dpad'] .side__group--gear {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+  }
+
+  .stage__side[data-tab='dpad'] .panel--status,
+  .stage__side[data-tab='dpad'] .panel--equipment,
+  .stage__side[data-tab='dpad'] .panel--perks {
+    display: none;
+  }
+
+  /* 半分の幅に収めるので、方向キーも1回り小さくする。 */
+  .stage__side[data-tab='dpad'] .dpad {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, 46px);
+    justify-content: stretch;
   }
 }
 

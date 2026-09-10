@@ -1,6 +1,6 @@
 import './styles/main.css';
 
-import type { GameState, Intent } from './core/types';
+import type { GameState, Intent, LogEntry } from './core/types';
 import { createGame } from './game/state';
 import { takeTurn } from './game/turn';
 import { tileIndex } from './game/dungeon';
@@ -24,6 +24,7 @@ import { addLog } from './core/log';
 import { evaluateAchievements, logAchievements } from './game/achievements';
 import { setSoundEnabled } from './audio/sfx';
 import { playCues } from './ui/cues';
+import { isLogVisible, showToasts } from './ui/toast';
 
 const container = document.getElementById('app');
 if (!container) throw new Error('#app not found');
@@ -96,6 +97,9 @@ function visibleEnemyIds(current: GameState): Set<string> {
  * ゲームは入力駆動なので、ここが唯一の状態進行の入口になる。
  */
 function dispatch(intent: Intent): void {
+  /** このターンに積まれたログ。描画後にトーストへ回す。 */
+  let fresh: readonly LogEntry[] = [];
+
   // Intent が来た = 盤面を動かす操作なので、タッチの選択は必ず解除する。
   // 「1回目のタップで選択するだけ」はここに来ない（draw() で描き直すだけ）。
   //
@@ -145,9 +149,15 @@ function dispatch(intent: Intent): void {
       }
     }
     // 音は「何が起きたか」をログから引く。game/ は音の存在を知らない。
-    playCues(state.log.filter((entry) => entry.id > lastLogId).map((entry) => entry.key));
+    fresh = state.log.filter((entry) => entry.id > lastLogId);
+    playCues(fresh.map((entry) => entry.key));
   }
   draw();
+
+  // ログのパネルが隠れているときだけ、新しい行を右上に流す。
+  // 判定は描画の**後**に行う。設定を変えた直後は、描き直すまで
+  // DOM が古いタブのままで、見えている・いないを取り違える。
+  if (fresh.length > 0 && !isLogVisible(root)) showToasts(fresh, settings.lang);
 }
 
 window.addEventListener('keydown', (event) => {
