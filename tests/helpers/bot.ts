@@ -1,4 +1,4 @@
-import type { GameState, Vec2 } from '../../src/core/types';
+import type { GameState, ItemId, Vec2 } from '../../src/core/types';
 import { createGame } from '../../src/game/state';
 import { takeTurn } from '../../src/game/turn';
 import { enemyAt } from '../../src/game/enemy';
@@ -29,6 +29,9 @@ export interface BotResult {
   timedOut: boolean;
   state: GameState;
 }
+
+/** 回復に使えるアイテム。増えたらここに足す。 */
+const HEALING: ReadonlySet<ItemId> = new Set<ItemId>(['potion', 'elixir']);
 
 const STEPS: readonly (readonly [number, number])[] = [
   [0, -1],
@@ -66,8 +69,10 @@ export function runBot(seed: number, options: BotOptions = {}): BotResult {
     }
 
     if (state.player.hp < state.player.maxHp * healBelow) {
+      // 回復アイテムなら種類を問わず飲む。下手なプレイヤーは「大きい方を取っておく」
+      // 判断をしない。ここを賢くすると上手い人の到達階層を測ることになる。
       const slot = state.player.inventory.findIndex(
-        (s) => s !== null && s.itemId === 'potion' && s.count > 0,
+        (s) => s !== null && HEALING.has(s.itemId) && s.count > 0,
       );
       if (slot >= 0) {
         takeTurn(state, { type: 'useItem', slot });

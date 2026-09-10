@@ -75,7 +75,7 @@ export interface Actor {
 
 // --- アイテム ----------------------------------------------------------------
 
-export type ItemId = 'potion' | 'bomb' | 'scroll' | 'key';
+export type ItemId = 'potion' | 'elixir' | 'bomb' | 'scroll' | 'key';
 
 export interface ItemStack {
   itemId: ItemId;
@@ -264,6 +264,7 @@ export type LogKey =
   | 'log.pickup'
   | 'log.inventoryFull'
   | 'log.usePotion'
+  | 'log.useElixir'
   | 'log.emptySlot'
   | 'log.alreadyFull'
   | 'log.descendHeal'

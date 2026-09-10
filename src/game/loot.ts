@@ -15,6 +15,7 @@ import {
   BOMB_RADIUS,
   INVENTORY_SIZE,
   MAX_STACK,
+  ELIXIR_HEAL,
   POTION_HEAL,
   LOCKED_CHEST_CHANCE,
   SCROLL_BLAST_DAMAGE,
@@ -361,15 +362,10 @@ export function useItem(state: GameState, slot: number): boolean {
  */
 function applyItem(state: GameState, itemId: ItemId): boolean {
   switch (itemId) {
-    case 'potion': {
-      if (state.player.hp >= state.player.maxHp) {
-        addLogOnce(state.log, 'log.alreadyFull', {}, 'info');
-        return false;
-      }
-      const healed = healPlayer(state, POTION_HEAL);
-      addLog(state.log, 'log.usePotion', { healed }, 'good');
-      return true;
-    }
+    case 'potion':
+      return drink(state, POTION_HEAL, 'log.usePotion');
+    case 'elixir':
+      return drink(state, ELIXIR_HEAL, 'log.useElixir');
     case 'bomb':
       return detonate(state);
     case 'scroll':
@@ -383,6 +379,23 @@ function applyItem(state: GameState, itemId: ItemId): boolean {
       // 分岐を書き忘れたまま「飲むと回復する」挙動を引き継がせないための番人。
       return assertNever(itemId);
   }
+}
+
+/**
+ * 回復アイテムを飲む。
+ *
+ * 満タンなら**アイテムもターンも消費しない**。回復は最も乏しい資源であり、
+ * しかも使用はターンを消費するので、誤爆は1本失うだけでなく
+ * 隣接する敵全員に1ターン与えることになる。
+ */
+function drink(state: GameState, ratio: number, key: 'log.usePotion' | 'log.useElixir'): boolean {
+  if (state.player.hp >= state.player.maxHp) {
+    addLogOnce(state.log, 'log.alreadyFull', {}, 'info');
+    return false;
+  }
+  const healed = healPlayer(state, ratio);
+  addLog(state.log, key, { healed }, 'good');
+  return true;
 }
 
 /**

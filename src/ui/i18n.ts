@@ -24,6 +24,7 @@ export type MessageKey =
   | 'log.pickup'
   | 'log.inventoryFull'
   | 'log.usePotion'
+  | 'log.useElixir'
   | 'log.emptySlot'
   | 'log.alreadyFull'
   | 'log.descendHeal'
@@ -91,6 +92,7 @@ export type MessageKey =
   | 'ui.newBest'
   | 'item.potion'
   | 'item.bomb'
+  | 'item.elixir'
   | 'item.scroll'
   | 'item.key'
   | 'perk.poisonAttack'
@@ -210,6 +212,7 @@ const EN: Record<MessageKey, string> = {
   'log.pickup': 'Picked up {count} Potion.',
   'log.inventoryFull': 'Your pack is full.',
   'log.usePotion': 'You drink a Potion. (+{healed} HP)',
+  'log.useElixir': 'You drain the Elixir. (+{healed} HP)',
   'log.emptySlot': 'Slot {slot} is empty.',
   'log.alreadyFull': 'You are already at full health.',
   'log.descendHeal': 'You catch your breath. (+{healed} HP)',
@@ -318,6 +321,7 @@ const EN: Record<MessageKey, string> = {
   'ui.best': 'BEST',
   'ui.newBest': 'NEW BEST',
   'item.bomb': 'Bomb',
+  'item.elixir': 'Elixir',
   'slot.weapon': 'Weapon',
   'slot.armor': 'Armor',
   'slot.ring': 'Ring',
@@ -397,6 +401,7 @@ const JA: Record<MessageKey, string> = {
   'log.pickup': 'Potion を {count} 個拾った。',
   'log.inventoryFull': '荷物がいっぱいだ。',
   'log.usePotion': 'Potion を飲んだ。(+{healed} HP)',
+  'log.useElixir': 'Elixir を飲み干した。(+{healed} HP)',
   'log.emptySlot': 'スロット {slot} は空だ。',
   'log.alreadyFull': 'HP は満タンだ。',
   'log.descendHeal': '一息ついた。(+{healed} HP)',
@@ -505,6 +510,7 @@ const JA: Record<MessageKey, string> = {
   'ui.best': 'BEST',
   'ui.newBest': '自己ベスト',
   'item.bomb': 'Bomb',
+  'item.elixir': 'Elixir',
   'slot.weapon': '武器',
   'slot.armor': '防具',
   'slot.ring': '指輪',

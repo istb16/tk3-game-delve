@@ -18,6 +18,13 @@ export const ITEMS: readonly ItemDef[] = [
     perFloor: (floor) => (floor >= 10 ? 3 : 2),
   },
   {
+    id: 'elixir',
+    name: 'Elixir',
+    // Potion より深い階から、控えめな頻度で。常に手元にあると
+    // 「取っておく」判断が生まれない。
+    perFloor: (floor, roll) => (floor >= 4 && roll < 0.3 ? 1 : 0),
+  },
+  {
     id: 'bomb',
     name: 'Bomb',
     // 常時あると立ち回りが単調になるので、半分弱のフロアにだけ置く
