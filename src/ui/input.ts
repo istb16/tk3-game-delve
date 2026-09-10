@@ -1,4 +1,4 @@
-import type { Dir, Intent, Phase } from '../core/types';
+import type { Dir, Intent, Phase, Vec2 } from '../core/types';
 import { INVENTORY_SIZE } from '../core/constants';
 
 /**
@@ -122,9 +122,56 @@ export function isHoverless(): boolean {
 }
 
 export function intentFromDpad(value: string): Intent | null {
-  if (value === 'wait') return { type: 'wait' };
   if (value === 'up' || value === 'down' || value === 'left' || value === 'right') {
     return { type: 'move', dir: value };
   }
   return null;
+}
+
+/** 盤面の矩形。DOM の DOMRect から必要な4つだけを受け取る（テストで DOM を要らなくする）。 */
+export interface BoardRect {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * 画面座標を盤面のマスに変換する。
+ *
+ * 盤面は `viewBox="0 0 width height"` の正方 SVG を CSS で伸縮させているだけなので、
+ * 矩形を等分するだけでマスが出る。範囲外（枠の縁）は null。
+ */
+export function boardCellFromPoint(
+  rect: BoardRect,
+  point: { readonly x: number; readonly y: number },
+  width: number,
+  height: number,
+): Vec2 | null {
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const x = Math.floor(((point.x - rect.left) / rect.width) * width);
+  const y = Math.floor(((point.y - rect.top) / rect.height) * height);
+  if (x < 0 || y < 0 || x >= width || y >= height) return null;
+  return { x, y };
+}
+
+/**
+ * 盤面のタップを Intent に変換する。
+ *
+ * 押したマスへ直接ワープするのではなく、**プレイヤーから見た方向へ 1 歩**進む。
+ * 移動は1マスずつというルールを変えずに、指で押せる的を盤面いっぱいまで広げられる
+ * （1マスは iPhone の縦画面で 24px 前後しかなく、隣接マスだけを的にすると小さすぎる）。
+ *
+ * 斜めのタップは大きい方の成分を採る。同じだけ離れているときは横を優先する —
+ * どちらでもよいが、経路ごとに違う向きになる方が操作を読めなくする。
+ *
+ * 自分のマスをタップしたら待機。方向パッドの中央ボタンを置き換える操作なので、
+ * 「動かないことを選ぶ」手段は必ず残す。
+ */
+export function intentFromBoardTap(player: Vec2, cell: Vec2): Intent {
+  const dx = cell.x - player.x;
+  const dy = cell.y - player.y;
+  if (dx === 0 && dy === 0) return { type: 'wait' };
+  if (Math.abs(dx) >= Math.abs(dy)) return { type: 'move', dir: dx > 0 ? 'right' : 'left' };
+  return { type: 'move', dir: dy > 0 ? 'down' : 'up' };
 }

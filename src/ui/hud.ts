@@ -34,13 +34,21 @@ export function renderHud(state: GameState, settings: Settings): string {
 /**
  * 言語・方向キー・効果音の設定。
  *
- * 画面の**最下部**、方向キーより下に置く。プレイ中に触るものではないので、
- * 盤面や HUD の近くに置くと視線と指の通り道を占領してしまう。
+ * 画面の**最下部**に置く。プレイ中に触るものではないので、盤面や HUD の
+ * 近くに置くと視線と指の通り道を占領してしまう。
+ *
+ * 狭い画面では既定で畳んでおく。3グループぶんの高さは、スマートフォンの
+ * 縦画面では盤面を削ってまで常時見せる価値がない。開閉状態は `Settings` が持つ
+ * （毎ターンの再描画で閉じると、言語を変えるたびに開き直しになる）。
  */
 export function renderSettings(settings: Settings): string {
   const lang = settings.lang;
   return `
-    <div class="settings" role="group" aria-label="${t(lang, 'ui.settings')}">
+    <div class="settings" role="group" aria-label="${t(lang, 'ui.settings')}"
+      data-open="${settings.settingsOpen}">
+      <button class="settings__toggle" data-toggle-settings
+        aria-expanded="${settings.settingsOpen}">&#9881; ${t(lang, 'ui.settings')}</button>
+      <div class="settings__body">
       <div class="settings__group">
         <span class="settings__label">${t(lang, 'ui.language')}</span>
         ${langButton('en', 'EN', settings.lang)}
@@ -55,6 +63,7 @@ export function renderSettings(settings: Settings): string {
       <div class="settings__group">
         <span class="settings__label">${t(lang, 'ui.sound')}</span>
         ${soundButton(settings.sound, lang)}
+      </div>
       </div>
     </div>
   `;

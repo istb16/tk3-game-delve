@@ -209,7 +209,9 @@ export type MessageKey =
   | 'aria.moveDown'
   | 'aria.moveLeft'
   | 'aria.moveRight'
-  | 'aria.wait';
+  | 'aria.wait'
+  | 'ui.tabDpad'
+  | 'ui.tapMove';
 
 export type MessageParams = Readonly<Record<string, string | number>>;
 
@@ -412,6 +414,8 @@ const EN: Record<MessageKey, string> = {
   'aria.soundOff': 'Turn sound off',
   'ui.tabGear': 'GEAR',
   'ui.tabLog': 'LOG',
+  'ui.tabDpad': 'PAD',
+  'ui.tapMove': 'Tap the map to step. Tap yourself to wait.',
 };
 
 const JA: Record<MessageKey, string> = {
@@ -613,6 +617,8 @@ const JA: Record<MessageKey, string> = {
   'aria.soundOff': '効果音を止める',
   'ui.tabGear': '装備',
   'ui.tabLog': 'ログ',
+  'ui.tabDpad': '方向キー',
+  'ui.tapMove': '盤面をタップで移動。自分をタップで待機。',
 };
 
 const TABLES: Record<Lang, Record<MessageKey, string>> = { en: EN, ja: JA };

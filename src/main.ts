@@ -6,6 +6,8 @@ import { takeTurn } from './game/turn';
 import { tileIndex } from './game/dungeon';
 import { render } from './ui/view';
 import {
+  boardCellFromPoint,
+  intentFromBoardTap,
   intentFromDpad,
   intentFromKey,
   isGameKey,
@@ -188,7 +190,8 @@ root.addEventListener('click', (event) => {
 
   const button = target.closest(
     '[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-set-sound],' +
-      ' [data-set-panel], [data-use-slot], [data-drop-slot], [data-choose]',
+      ' [data-set-panel], [data-use-slot], [data-drop-slot], [data-choose],' +
+      ' [data-toggle-settings]',
   );
   if (!(button instanceof HTMLElement)) return;
 
@@ -200,7 +203,15 @@ root.addEventListener('click', (event) => {
 
   const dpad = button.dataset['setDpad'];
   if (dpad === 'auto' || dpad === 'on' || dpad === 'off') {
-    updateSettings({ dpad: dpad as DpadMode });
+    // 方向キーを消したのにタブだけ残ると、サイドパネルが空になる。
+    // 表示できないタブを選んだままにしない。
+    const panel: PanelTab = dpad === 'off' && settings.panel === 'dpad' ? 'gear' : settings.panel;
+    updateSettings({ dpad: dpad as DpadMode, panel });
+    return;
+  }
+
+  if (button.dataset['toggleSettings'] !== undefined) {
+    updateSettings({ settingsOpen: !settings.settingsOpen });
     return;
   }
 
@@ -212,7 +223,7 @@ root.addEventListener('click', (event) => {
   }
 
   const panel = button.dataset['setPanel'];
-  if (panel === 'gear' || panel === 'log') {
+  if (panel === 'gear' || panel === 'log' || panel === 'dpad') {
     updateSettings({ panel: panel as PanelTab });
     return;
   }
@@ -252,4 +263,33 @@ root.addEventListener('click', (event) => {
   if (!dir) return;
   const intent = intentFromDpad(dir);
   if (intent) dispatch(intent);
+});
+
+/**
+ * 盤面のタップで歩く。
+ *
+ * ボタンを増やさずに済むので、方向パッドを出さなくてもスマートフォンで遊べる。
+ * 押した先へワープするのではなく、プレイヤーから見た方向へ1歩だけ進む
+ * （→ ui/input.ts の intentFromBoardTap）。
+ *
+ * 上のクリック委譲とは別に張る。あちらは「押されたボタン」を探す処理で、
+ * こちらは座標を読む処理なので、同じ分岐に混ぜると両方が読みにくくなる。
+ */
+root.addEventListener('click', (event) => {
+  // 選択待ちや死亡中は盤面を触らせない。モーダルの裏を操作できてしまう。
+  if (state.phase !== 'playing') return;
+
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const board = target.closest('.board');
+  if (!board) return;
+
+  const cell = boardCellFromPoint(
+    board.getBoundingClientRect(),
+    { x: event.clientX, y: event.clientY },
+    state.dungeon.width,
+    state.dungeon.height,
+  );
+  if (!cell) return;
+  dispatch(intentFromBoardTap(state.player.pos, cell));
 });

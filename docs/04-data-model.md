@@ -318,14 +318,23 @@ localStorage は用途ごとにキーを分ける。設定はゲームの進行�
 ```ts
 export type Lang = 'en' | 'ja';
 export type DpadMode = 'auto' | 'on' | 'off';
+export type PanelTab = 'gear' | 'log' | 'dpad';
 
 interface Settings {
   lang: Lang;
   dpad: DpadMode;
+  sound: boolean;
+  panel: PanelTab;
+  settingsOpen: boolean;
 }
 ```
 
-`lang` の初期値は `navigator.language` から推定する。`dpad` の初期値は `'auto'`。
+`lang` の初期値は `navigator.language` から推定する。`dpad` の初期値は `'auto'`、
+`sound` は `false`、`panel` は `'gear'`、`settingsOpen` は `false`。
+
+`panel` と `settingsOpen` は純粋な見た目の状態だが、ここに置く。
+UI 側に一時的な値を抱えるより素直で、毎ターンの再描画で消えることもない
+（→ [05 §5.8](05-ui-design.md)）。
 
 **読み込みは常に既知の値だけを受け入れる。** 手で書き換えられた localStorage で
 未定義の状態に落ちないようにするため、`LANGS.find(v => v === record.lang) ?? 既定値`
