@@ -1,5 +1,6 @@
 import type {
   Dungeon,
+  StageEventKind,
   Entity,
   EntityPayload,
   Equipment,
@@ -535,21 +536,25 @@ function readScroll(state: GameState): boolean {
         damageEnemy(state, enemy, SCROLL_BLAST_DAMAGE);
         hits += 1;
       }
+      mark(state, 'blast');
       addLog(state.log, 'log.scrollBlast', { hits }, 'good');
       return true;
     }
     case 'reveal': {
       state.dungeon.explored.fill(true);
+      mark(state, 'reveal');
       addLog(state.log, 'log.scrollReveal', {}, 'good');
       return true;
     }
     case 'teleport': {
       state.player.pos = { ...state.dungeon.stairs };
+      mark(state, 'teleport');
       addLog(state.log, 'log.scrollTeleport', {}, 'good');
       return true;
     }
     case 'rage': {
       applyStatus(state.player, 'rage', SCROLL_RAGE.turns, SCROLL_RAGE.power);
+      mark(state, 'rage');
       addLog(state.log, 'log.scrollRage', { turns: SCROLL_RAGE.turns }, 'good');
       return true;
     }
@@ -562,6 +567,7 @@ function readScroll(state: GameState): boolean {
       const victim = rng.pick(alive);
       // 消滅は撃破ではない。経験値もゴールドも入らない。
       victim.hp = 0;
+      mark(state, 'banish');
       addLog(state.log, 'log.scrollBanish', { name: victim.name }, 'good');
       return true;
     }
@@ -573,6 +579,17 @@ function readScroll(state: GameState): boolean {
       return true;
     }
   }
+}
+
+/**
+ * 盤面全体の出来事を記録する。
+ *
+ * 巻物は当たりの中身が5種類あり、ログ1行では何が起きたのか掴めない。
+ * 「敵が吹き飛んだ」「地図が浮かんだ」「引き寄せられた」は
+ * 見た目が違って初めて別の出来事として伝わる。
+ */
+function mark(state: GameState, kind: StageEventKind): void {
+  state.stageEvent = { kind, turn: state.turn };
 }
 
 function assertNever(value: never): never {

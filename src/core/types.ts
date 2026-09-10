@@ -388,6 +388,22 @@ export type PendingChoice =
       current: Equipment;
     };
 
+// --- 画面全体の出来事 --------------------------------------------------------
+
+/**
+ * このターンに起きた、盤面全体に関わる出来事。演出の出典。
+ *
+ * `hurtOnTurn` などがアクター単位の事実を持つのに対し、こちらは
+ * 「画面全体で何が起きたか」を持つ。どう見せるかは `ui/` が決める。
+ */
+export type StageEventKind = 'blast' | 'reveal' | 'teleport' | 'rage' | 'banish';
+
+export interface StageEvent {
+  kind: StageEventKind;
+  /** 起きたターン番号。UI は `turn === state.turn` で今のターンか判定する。 */
+  turn: number;
+}
+
 // --- ゲーム状態 --------------------------------------------------------------
 
 export interface GameState {
@@ -397,6 +413,8 @@ export interface GameState {
    * ターンの開始時に増やすので、そのターン中のダメージはすべて同じ番号になる。
    */
   turn: number;
+  /** 直近に起きた盤面全体の出来事。演出のために持つ。 */
+  stageEvent: StageEvent | null;
   /** ターン処理中に使う乱数。フロア生成には fork した子 RNG を使う。 */
   rng: Rng;
   /** この Run の乱数シード。同じシードなら同じダンジョンが再現される。 */

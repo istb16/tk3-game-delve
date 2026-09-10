@@ -45,7 +45,7 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
   root.innerHTML = `
     ${renderHud(state, settings)}
     <main class="stage${stageEffects(state)}">
-      <div class="stage__board">${renderBoard(state, settings)}</div>
+      <div class="stage__board">${renderBoard(state, settings)}${renderFx(state)}</div>
       <aside class="stage__side" data-tab="${settings.panel}">
         ${renderTabs(settings)}
         <div class="side__group side__group--gear">
@@ -95,6 +95,18 @@ function stageEffects(state: GameState): string {
   }
   if (player.leveledOnTurn === state.turn) marks.push('stage--levelup');
   return marks.length > 0 ? ' ' + marks.join(' ') : '';
+}
+
+/**
+ * 盤面全体の演出。
+ *
+ * 今のターンに起きた出来事だけを描く。`render()` は毎ターン innerHTML を
+ * 作り直すので、要素が現れた時点で CSS アニメーションが先頭から再生される。
+ */
+function renderFx(state: GameState): string {
+  const event = state.stageEvent;
+  if (!event || event.turn !== state.turn) return '';
+  return `<div class="fx fx--${event.kind}" aria-hidden="true"></div>`;
 }
 
 /**

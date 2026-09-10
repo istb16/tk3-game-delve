@@ -174,3 +174,54 @@ describe('巻物のハズレの演出', () => {
     }
   });
 });
+
+describe('巻物の当たりの演出', () => {
+  it('当たりの5種すべてが、それぞれ違う演出を出す', () => {
+    const seen = new Map<string, string>();
+
+    for (let seed = 1; seed <= 400 && seen.size < 5; seed++) {
+      const state = createGame(seed * 11);
+      state.player.inventory[0] = { itemId: 'scroll', count: 1 };
+      // 消滅と全体攻撃には敵が要る
+      const before = state.log.length;
+      useItem(state, 0);
+
+      const keys = state.log.slice(before).map((e) => e.key);
+      const outcome = keys.find((k) => k.startsWith('log.scroll'));
+      if (!outcome || outcome === 'log.scrollCurse') continue;
+      if (state.stageEvent?.turn !== state.turn) continue;
+      seen.set(outcome, state.stageEvent.kind);
+    }
+
+    expect(seen.size, `見つかった当たりが少ない: ${[...seen.keys()].join(',')}`).toBe(5);
+    // ログと演出が1対1で対応していること（同じ絵で違う出来事を表さない）
+    expect(new Set(seen.values()).size, '複数の当たりが同じ演出になっている').toBe(5);
+  });
+
+  it('ハズレでは盤面の演出を出さない（赤いフラッシュだけ）', () => {
+    let checked = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const state = createGame(seed * 13);
+      state.player.inventory[0] = { itemId: 'scroll', count: 1 };
+      useItem(state, 0);
+      if (!state.log.some((e) => e.key === 'log.scrollCurse')) continue;
+      checked += 1;
+      expect(state.stageEvent?.turn, 'ハズレで当たりの演出が出ている').not.toBe(state.turn);
+      expect(state.player.cursedOnTurn).toBe(state.turn);
+    }
+    expect(checked, 'ハズレを引けなかった').toBeGreaterThan(0);
+  });
+
+  it('巻物以外では盤面の演出が残らない', () => {
+    const state = createGame(5);
+    state.player.inventory[0] = { itemId: 'scroll', count: 2 };
+    useItem(state, 0);
+    const eventTurn = state.stageEvent?.turn;
+
+    // ターンが進めば、前のターンの演出は出なくなる
+    takeTurn(state, { type: 'wait' });
+    if (eventTurn !== undefined) {
+      expect(state.stageEvent?.turn).not.toBe(state.turn);
+    }
+  });
+});

@@ -923,6 +923,79 @@ kbd {
   pointer-events: none;
 }
 
+
+/* --- 盤面全体の演出（巻物） ------------------------------------------------- */
+
+/*
+ * 巻物の当たりは5種類あり、ログ1行では何が起きたのか掴めない。
+ * 「敵が吹き飛んだ」「地図が浮かんだ」「引き寄せられた」は
+ * 見た目が違って初めて別の出来事として伝わる。
+ *
+ * 基準の opacity は 0 にしておく。prefers-reduced-motion で
+ * アニメーションが止まったとき、開始状態が見えていると出っぱなしになる。
+ */
+.fx {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 全体攻撃: 中心から白い衝撃波が広がる */
+@keyframes fx-blast {
+  0% { opacity: 0; transform: scale(0.25); }
+  25% { opacity: 0.8; }
+  100% { opacity: 0; transform: scale(1.7); }
+}
+
+.fx--blast {
+  background: radial-gradient(circle at center, #fcfcfc 0%, rgb(120 160 240 / 0.55) 35%, transparent 68%);
+  animation: fx-blast 340ms ease-out forwards;
+}
+
+/* マップ露出: 青い帯が上から下へ抜ける */
+@keyframes fx-reveal {
+  0% { opacity: 0; transform: translateY(-100%); }
+  20% { opacity: 0.65; }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+
+.fx--reveal {
+  background: linear-gradient(to bottom, transparent, var(--info) 50%, transparent);
+  animation: fx-reveal 560ms ease-out forwards;
+}
+
+/* 階段へテレポート: 一瞬白く飛ぶ */
+@keyframes fx-teleport {
+  0% { opacity: 0; }
+  12% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+
+.fx--teleport {
+  background: var(--text);
+  animation: fx-teleport 260ms ease-out forwards;
+}
+
+/* 激昂: 中心から赤が脈打つ */
+@keyframes fx-pulse {
+  0% { opacity: 0; transform: scale(0.7); }
+  35% { opacity: 0.5; }
+  100% { opacity: 0; transform: scale(1.25); }
+}
+
+.fx--rage {
+  background: radial-gradient(circle at center, var(--danger) 0%, transparent 58%);
+  animation: fx-pulse 440ms ease-out forwards;
+}
+
+/* 敵の消滅: 紫が滲んで消える */
+.fx--banish {
+  background: radial-gradient(circle at center, var(--rare) 0%, transparent 62%);
+  animation: fx-pulse 400ms ease-out forwards;
+}
+
 /* --- 実績 ------------------------------------------------------------------ */
 
 .ach__list {

@@ -26,6 +26,7 @@ export function createGame(seed: number = randomSeed()): GameState {
   const state: GameState = {
     phase: 'playing',
     turn: 0,
+    stageEvent: null,
     rng,
     seed,
     floor,
