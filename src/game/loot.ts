@@ -567,6 +567,8 @@ function readScroll(state: GameState): boolean {
     }
     case 'curse': {
       addBonus(state.player, { maxHp: -SCROLL_CURSE_MAX_HP });
+      // ログだけだと見落とす。ハズレを引いたことを画面で伝える。
+      state.player.cursedOnTurn = state.turn;
       addLog(state.log, 'log.scrollCurse', { amount: SCROLL_CURSE_MAX_HP }, 'bad');
       return true;
     }

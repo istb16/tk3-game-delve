@@ -140,3 +140,37 @@ describe('スタックの上限', () => {
     expect(used[1]?.count).toBe(1);
   });
 });
+
+describe('巻物のハズレの演出', () => {
+  it('呪いを引いたら赤いフラッシュの条件が立つ', () => {
+    let cursed = false;
+    for (let seed = 1; seed <= 120 && !cursed; seed++) {
+      const state = createGame(seed * 13);
+      state.player.inventory[0] = { itemId: 'scroll', count: 1 };
+      const turnBefore = state.turn;
+      useItem(state, 0);
+
+      if (!state.log.some((e) => e.key === 'log.scrollCurse')) continue;
+      cursed = true;
+
+      // 被弾と同じ赤いフラッシュを出すための条件
+      expect(state.player.cursedOnTurn, '呪いのターンが記録されていない').toBe(turnBefore);
+
+      // HP は減らないので、ダメージ数値は出さない
+      expect(state.player.hurtOnTurn, '呪いでダメージ数値が出てしまう').not.toBe(turnBefore);
+    }
+    expect(cursed, '120 回引いても呪いが出なかった').toBe(true);
+  });
+
+  it('当たりを引いたときは赤いフラッシュを出さない', () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      const state = createGame(seed * 7);
+      state.player.inventory[0] = { itemId: 'scroll', count: 1 };
+      const turn = state.turn;
+      useItem(state, 0);
+
+      if (state.log.some((e) => e.key === 'log.scrollCurse')) continue;
+      expect(state.player.cursedOnTurn, `seed=${seed} 当たりなのに呪い扱い`).not.toBe(turn);
+    }
+  });
+});

@@ -87,8 +87,13 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
  */
 function stageEffects(state: GameState): string {
   const marks: string[] = [];
-  if (state.player.hurtOnTurn === state.turn) marks.push('stage--hurt');
-  if (state.player.leveledOnTurn === state.turn) marks.push('stage--levelup');
+  const player = state.player;
+  // 被弾と呪いは同じ赤いフラッシュで伝える。プレイヤーにとっては
+  // どちらも「悪いことが起きた」で、区別する必要がない。
+  if (player.hurtOnTurn === state.turn || player.cursedOnTurn === state.turn) {
+    marks.push('stage--hurt');
+  }
+  if (player.leveledOnTurn === state.turn) marks.push('stage--levelup');
   return marks.length > 0 ? ' ' + marks.join(' ') : '';
 }
 

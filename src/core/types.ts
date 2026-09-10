@@ -192,6 +192,14 @@ export interface Player extends Actor {
   exp: number;
   /** 最後にレベルが上がったターン番号。演出の判定に使う。 */
   leveledOnTurn: number;
+  /**
+   * HP 以外の負の効果を受けたターン番号（巻物の呪いなど）。
+   *
+   * `hurtOnTurn` と分けているのは、ダメージ数値を出すかどうかが違うから。
+   * 呪いは HP を削らないので、数字を浮かせると「何のダメージ?」になる。
+   * 赤いフラッシュだけを出して「悪いことが起きた」と伝える。
+   */
+  cursedOnTurn: number;
   /** 次のレベルまでに必要な累計経験値 */
   nextExp: number;
   gold: number;

@@ -15,6 +15,7 @@ export function createPlayer(pos: Vec2): Player {
     level: 1,
     exp: 0,
     leveledOnTurn: -1,
+    cursedOnTurn: -1,
     nextExp: expToNextLevel(1),
     gold: 0,
     steps: 0,
