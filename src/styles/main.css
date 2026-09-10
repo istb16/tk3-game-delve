@@ -432,6 +432,12 @@ kbd {
   font-weight: 700;
 }
 
+/* 上限に達したスタックは色を変える。
+   同じ物が2枠に分かれる理由が、盤面を見ただけで分かるようにする。 */
+.slot__count--full {
+  color: var(--accent);
+}
+
 /* 床に落ちている物は、拾えると分かるようわずかに沈める */
 .entity {
   opacity: 0.95;
@@ -779,6 +785,17 @@ kbd {
 .gear .tip {
   left: 0;
   transform: none;
+}
+
+/* 所持数と1スロットの上限。上限に達していることを色でも示す。 */
+.tip__held {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tip__held--full {
+  color: var(--accent);
 }
 
 /* タッチで選択したときだけ出す案内。マウスでは邪魔なので出さない。 */

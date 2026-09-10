@@ -1,0 +1,142 @@
+import { describe, expect, it } from 'vitest';
+import type { LogEntry } from '../src/core/types';
+import { MAX_STACK } from '../src/core/constants';
+import { formatLogEntry } from '../src/ui/logline';
+import { createGame } from '../src/game/state';
+import { takeTurn } from '../src/game/turn';
+import { pickupAt, useItem } from '../src/game/loot';
+import { logAchievements } from '../src/game/achievements';
+import { runBot } from './helpers/bot';
+import { EVENTS } from '../src/data/events';
+import { ITEMS } from '../src/data/items';
+
+const LANGS = ['en', 'ja'] as const;
+
+/** 未置換のプレースホルダが残っていないか。 */
+function assertRendered(entry: LogEntry, where: string): void {
+  for (const lang of LANGS) {
+    const text = formatLogEntry(lang, entry);
+    expect(text.length, `${where} ${lang} ${entry.key} が空`).toBeGreaterThan(0);
+    expect(text, `${where} ${lang} ${entry.key} にプレースホルダが残っている: ${text}`).not.toMatch(
+      /\{[a-zA-Z]+\}/,
+    );
+  }
+}
+
+/**
+ * ログの表示は、game/ が積んだ識別子を ui/ が名前に引き当てて初めて完成する。
+ * この対応が抜けると `{item}` や `{name}` がそのまま画面に出る。
+ * 実際に2回やっているので、機械的に検査する。
+ */
+describe('ログの表示', () => {
+  it('自動プレイで積まれた全てのログが、両言語で破綻せず描画できる', () => {
+    const seen = new Map<string, LogEntry>();
+
+    for (let seed = 1; seed <= 12; seed++) {
+      const result = runBot(seed * 7919, { maxFloor: 20 });
+      for (const entry of result.state.log) {
+        // 同じキーは params の組み合わせごとに1件だけ見る
+        seen.set(entry.key + JSON.stringify(Object.keys(entry.params).sort()), entry);
+      }
+    }
+
+    expect(seen.size, '収集できたログの種類が少なすぎる').toBeGreaterThan(8);
+    for (const [where, entry] of seen) assertRendered(entry, where);
+  }, 120_000);
+
+  it('拾ったアイテムの名前がログに出る（Potion 直書きになっていない）', () => {
+    for (const item of ITEMS) {
+      const state = createGame(7);
+      state.entities = [
+        {
+          id: 'x',
+          kind: 'item',
+          pos: { ...state.player.pos },
+          payload: { type: 'item', itemId: item.id, count: 1 },
+        },
+      ];
+      pickupAt(state, state.player.pos);
+
+      const entry = state.log[state.log.length - 1];
+      expect(entry?.key).toBe('log.pickup');
+      assertRendered(entry as LogEntry, `pickup:${item.id}`);
+
+      // 拾った物の名前が実際に含まれていること
+      for (const lang of LANGS) {
+        expect(formatLogEntry(lang, entry as LogEntry), `${item.id} の名前が出ていない`).toContain(
+          item.name,
+        );
+      }
+    }
+  });
+
+  it('実績のログに実績名が出る', () => {
+    const state = createGame(8);
+    logAchievements(state, ['firstBlood']);
+    const entry = state.log[state.log.length - 1] as LogEntry;
+    assertRendered(entry, 'achievement');
+    for (const lang of LANGS) {
+      expect(formatLogEntry(lang, entry)).toContain('First Blood');
+    }
+  });
+
+  it('イベントのログが両言語で破綻しない', () => {
+    for (const def of EVENTS) {
+      for (const index of [0, def.optionCount - 1]) {
+        const state = createGame(9);
+        state.player.gold = 500;
+        state.floor = 10;
+        state.entities = [
+          {
+            id: 'ev',
+            kind: 'event',
+            pos: { ...state.player.pos },
+            payload: { type: 'event', eventId: def.id },
+          },
+        ];
+        pickupAt(state, state.player.pos);
+        takeTurn(state, { type: 'wait' });
+        const before = state.log.length;
+        takeTurn(state, { type: 'choose', index });
+
+        for (const entry of state.log.slice(before)) {
+          assertRendered(entry, `event:${def.id}:${index}`);
+        }
+      }
+    }
+  });
+
+  it('巻物のログが両言語で破綻しない', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const state = createGame(seed * 3);
+      state.player.inventory[0] = { itemId: 'scroll', count: 1 };
+      const before = state.log.length;
+      useItem(state, 0);
+      for (const entry of state.log.slice(before)) {
+        assertRendered(entry, `scroll:${seed}`);
+      }
+    }
+  });
+});
+
+describe('スタックの上限', () => {
+  it('同じアイテムでも上限を超えたら別のスロットに分かれる', () => {
+    const state = createGame(11);
+    state.entities = [];
+    for (let i = 0; i < MAX_STACK + 1; i++) {
+      state.entities.push({
+        id: `p${i}`,
+        kind: 'item',
+        pos: { ...state.player.pos },
+        payload: { type: 'item', itemId: 'potion', count: 1 },
+      });
+      pickupAt(state, state.player.pos);
+    }
+
+    const used = state.player.inventory.filter((s) => s !== null);
+    // 「同じ物なのに2枠に分かれる」のは仕様。UI 側で上限を見せて説明する。
+    expect(used.length).toBe(2);
+    expect(used[0]?.count).toBe(MAX_STACK);
+    expect(used[1]?.count).toBe(1);
+  });
+});

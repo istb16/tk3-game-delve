@@ -98,6 +98,8 @@ export type MessageKey =
   | 'itemDesc.scroll'
   | 'itemDesc.key'
   | 'ui.tapAgain'
+  | 'ui.stack'
+  | 'ui.stackFull'
   | 'item.scroll'
   | 'item.key'
   | 'perk.poisonAttack'
@@ -214,7 +216,7 @@ const EN: Record<MessageKey, string> = {
   'log.enemyDies': '{name} dies. +{exp} EXP',
   'log.levelUp': 'LEVEL UP! You are now LV {level}. (+{healed} HP)',
   'log.died': 'You died.',
-  'log.pickup': 'Picked up {count} Potion.',
+  'log.pickup': 'Picked up {item} x{count}.',
   'log.inventoryFull': 'Your pack is full.',
   'log.usePotion': 'You drink a Potion. (+{healed} HP)',
   'log.useElixir': 'You drain the Elixir. (+{healed} HP)',
@@ -331,6 +333,8 @@ const EN: Record<MessageKey, string> = {
   'itemDesc.bomb': 'Deal {damage} damage all around. Breaks walls.',
   'itemDesc.scroll': 'An unknown effect. Not always in your favour.',
   'itemDesc.key': 'Opens a locked chest.',
+  'ui.stack': 'Held {count}/{max}',
+  'ui.stackFull': 'Held {count}/{max} (full)',
   'ui.tapAgain': 'tap again to use',
   'slot.weapon': 'Weapon',
   'slot.armor': 'Armor',
@@ -408,7 +412,7 @@ const JA: Record<MessageKey, string> = {
   'log.enemyDies': '{name} を倒した。+{exp} EXP',
   'log.levelUp': 'LEVEL UP! LV {level} になった。(+{healed} HP)',
   'log.died': '力尽きた。',
-  'log.pickup': 'Potion を {count} 個拾った。',
+  'log.pickup': '{item} を {count} 個拾った。',
   'log.inventoryFull': '荷物がいっぱいだ。',
   'log.usePotion': 'Potion を飲んだ。(+{healed} HP)',
   'log.useElixir': 'Elixir を飲み干した。(+{healed} HP)',
@@ -525,6 +529,8 @@ const JA: Record<MessageKey, string> = {
   'itemDesc.bomb': '周囲8マスに {damage} ダメージ。壁も壊す',
   'itemDesc.scroll': '未知の効果。当たりとは限らない',
   'itemDesc.key': '施錠された宝箱を開ける',
+  'ui.stack': '所持 {count}/{max}',
+  'ui.stackFull': '所持 {count}/{max}（上限）',
   'ui.tapAgain': 'もう一度タップで使用',
   'slot.weapon': '武器',
   'slot.armor': '防具',

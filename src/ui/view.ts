@@ -8,7 +8,7 @@ import type {
   Slot,
   StatMods,
 } from '../core/types';
-import { ACHIEVEMENT_IDS, isAchievementId } from '../data/achievements';
+import { ACHIEVEMENT_IDS } from '../data/achievements';
 import type { Settings } from '../storage/settings';
 import type { RunOutcome, SaveData } from '../storage/save';
 import { computeScore } from '../storage/save';
@@ -16,8 +16,9 @@ import { renderBoard } from './board';
 import { renderHud, renderSettings } from './hud';
 import type { MessageKey } from './i18n';
 import { t } from './i18n';
+import { formatLogEntry } from './logline';
 import { itemSpriteId } from './sprites';
-import { BOMB_DAMAGE, ELIXIR_HEAL, POTION_HEAL } from '../core/constants';
+import { BOMB_DAMAGE, ELIXIR_HEAL, MAX_STACK, POTION_HEAL } from '../core/constants';
 
 export interface ViewContext {
   settings: Settings;
@@ -217,10 +218,17 @@ function renderItems(state: GameState, settings: Settings, selectedSlot: number 
       const selected = selectedSlot === index;
       // 説明はマウスならホバー、タッチなら1回目のタップで出す。
       // どちらも CSS で解決するので、UI 側に表示状態を持たない。
+      // 1スロットの上限を見せる。見えないと「同じ物なのに2枠に分かれた」ように見える。
+      const full = stack.count >= MAX_STACK;
+      const held = t(settings.lang, full ? 'ui.stackFull' : 'ui.stack', {
+        count: stack.count,
+        max: MAX_STACK,
+      });
       const tip =
         `<span class="tip" role="tooltip">` +
         `<span class="tip__name">${escapeHtml(name)}</span>` +
         `<span class="tip__desc">${escapeHtml(itemTip(settings, stack.itemId))}</span>` +
+        `<span class="tip__held${full ? ' tip__held--full' : ''}">${escapeHtml(held)}</span>` +
         (selected ? `<span class="tip__hint">${escapeHtml(t(settings.lang, 'ui.tapAgain'))}</span>` : '') +
         `</span>`;
 
@@ -230,7 +238,7 @@ function renderItems(state: GameState, settings: Settings, selectedSlot: number 
         `<span class="slot__key">${key}</span>` +
         `<svg class="slot__icon" viewBox="0 0 1 1" shape-rendering="crispEdges" aria-hidden="true">` +
         `<use href="#${itemSpriteId(stack.itemId)}" width="1" height="1"/></svg>` +
-        `<span class="slot__count">${stack.count}</span>` +
+        `<span class="slot__count${full ? ' slot__count--full' : ''}">${stack.count}</span>` +
         `</button>${tip}</li>`
       );
     })
@@ -255,23 +263,6 @@ function renderPerks(state: GameState, settings: Settings): string {
   return `<section class="panel"><h2 class="panel__title">${t(settings.lang, 'ui.perks')}</h2><ul class="perk__list">${tags}</ul></section>`;
 }
 
-/**
- * ログの params を表示用に整える。
- *
- * game/ は表示言語を知らないので、実績のログには id しか入っていない。
- * 名前に引き当てるのは ui/ の仕事。ここを飛ばすと `{name}` が
- * そのまま画面に出る。
- */
-function logParams(
-  entry: GameState['log'][number],
-  settings: Settings,
-): Readonly<Record<string, string | number>> {
-  if (entry.key !== 'log.achievement') return entry.params;
-  const id = entry.params['id'];
-  if (!isAchievementId(id)) return entry.params;
-  return { name: t(settings.lang, `ach.${id}` as const) };
-}
-
 function renderLog(state: GameState, settings: Settings): string {
   // 末尾が最新。新しいものを上に出すと視線が飛ぶので、下から積み上げる。
   const items = state.log
@@ -279,7 +270,7 @@ function renderLog(state: GameState, settings: Settings): string {
     .map(
       (entry) =>
         `<li class="log__line log__line--${entry.tone}">${escapeHtml(
-          t(settings.lang, entry.key, logParams(entry, settings)),
+          formatLogEntry(settings.lang, entry),
         )}</li>`,
     )
     .join('');
