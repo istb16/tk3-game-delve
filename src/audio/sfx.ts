@@ -80,11 +80,16 @@ const SOUNDS: Readonly<Record<SoundId, readonly Tone[]>> = {
 let context: AudioContext | null = null;
 let enabled = false;
 
+/**
+ * 鳴らすかどうかのフラグだけを切り替える。**AudioContext はここでは作らない。**
+ *
+ * 保存された設定が ON のまま再訪した場合、この関数はページ読み込み中に呼ばれる。
+ * そこで作ると自動再生ポリシーで suspended のまま残り、
+ * 最初の音が失われる。生成は play() まで遅らせる — play() は必ず
+ * キー入力かクリックの処理の中から呼ばれるので、その時点なら操作の内側にいる。
+ */
 export function setSoundEnabled(value: boolean): void {
   enabled = value;
-  if (!value) return;
-  // 有効化そのものがクリック操作の中で起きるので、ここで作るのが最も確実。
-  ensureContext();
 }
 
 function ensureContext(): AudioContext | null {

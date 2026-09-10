@@ -71,6 +71,9 @@ export function renderBoard(state: GameState, settings: Settings): string {
 
   // 敵は見えているマスにいるときだけ描く（暗闇の向こうの敵は見えない）
   for (const enemy of state.enemies) {
+    // 死体は絵を描かない。配列に1ターンだけ残しているのは
+    // とどめの一撃のダメージ数値を出すためで、盤面に立たせるためではない。
+    if (enemy.hp <= 0) continue;
     if (!d.visible[tileIndex(d, enemy.pos.x, enemy.pos.y)]) continue;
     const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
     // 状態異常は盤面でも分かるようにする。ログを遡らないと分からない状態は、

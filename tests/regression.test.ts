@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Entity } from '../src/core/types';
 import { ENEMIES } from '../src/data/enemies';
 import { EVENTS } from '../src/data/events';
@@ -166,5 +166,142 @@ describe('施錠された宝箱の約束', () => {
         descend(state);
       }
     }
+  });
+});
+
+describe('ログの差分を長さで取らない', () => {
+  it('ログが上限に達しても新規エントリを取り出せる', async () => {
+    const { MAX_LOG } = await import('../src/core/constants');
+    const { addLog } = await import('../src/core/log');
+    const state = createGame(31);
+
+    while (state.log.length < MAX_LOG) {
+      addLog(state.log, 'log.playerHit', { name: 'x', damage: 1 });
+    }
+    const lastId = state.log[state.log.length - 1]?.id ?? -1;
+
+    addLog(state.log, 'log.enemyDies', { name: 'y', exp: 1 });
+    addLog(state.log, 'log.levelUp', { level: 2, healed: 3 });
+
+    // 長さで区切ると 0 件になる（切り捨てで境界が意味を失う）
+    expect(state.log.length).toBe(MAX_LOG);
+    const byId = state.log.filter((e) => e.id > lastId);
+    expect(byId.length, 'id の差分で新規が取れていない').toBe(2);
+    expect(byId.map((e) => e.key)).toEqual(['log.enemyDies', 'log.levelUp']);
+  });
+
+  it('ログの id が単調増加する', async () => {
+    const { addLog } = await import('../src/core/log');
+    const state = createGame(32);
+    for (let i = 0; i < 120; i++) addLog(state.log, 'log.playerHit', { name: 'x', damage: 1 });
+
+    const ids = state.log.map((e) => e.id);
+    for (let i = 1; i < ids.length; i++) {
+      expect(ids[i] as number).toBeGreaterThan(ids[i - 1] as number);
+    }
+  });
+});
+
+describe('実績ログの表示', () => {
+  it('プレースホルダが残らず、実績名に置き換わる', async () => {
+    const { logAchievements } = await import('../src/game/achievements');
+    const { t } = await import('../src/ui/i18n');
+    const state = createGame(33);
+
+    logAchievements(state, ['firstBlood']);
+    const entry = state.log[state.log.length - 1];
+    expect(entry?.key).toBe('log.achievement');
+
+    // game/ は表示名を知らないので id しか入っていない。
+    // 置き換えは ui/ の仕事で、そのままだと {name} が画面に出る。
+    for (const lang of ['en', 'ja'] as const) {
+      const raw = t(lang, 'log.achievement', entry?.params ?? {});
+      expect(raw, `${lang}: 直接描画すると壊れることの確認`).toContain('{name}');
+
+      const fixed = t(lang, 'log.achievement', {
+        name: t(lang, 'ach.firstBlood'),
+      });
+      expect(fixed).not.toContain('{');
+      expect(fixed).toContain(t(lang, 'ach.firstBlood'));
+    }
+  });
+});
+
+describe('とどめの一撃のダメージ表示', () => {
+  it('倒した敵もそのターンの描画までは配列に残る', () => {
+    const state = createGame(34);
+    state.enemies = [];
+    const target = {
+      id: 'victim',
+      kind: 'goblin' as const,
+      name: 'Goblin',
+      ai: 'chase' as const,
+      pos: { x: state.player.pos.x + 1, y: state.player.pos.y },
+      hp: 1,
+      maxHp: 20,
+      attack: 1,
+      defense: 0,
+      speed: 1,
+      exp: 5,
+      gold: 5,
+      steps: 0,
+      hurtOnTurn: -1,
+      lastDamage: 0,
+      effects: [],
+      evasion: 0,
+      ability: null,
+      revived: false,
+      split: false,
+    };
+    state.enemies.push(target);
+
+    takeTurn(state, { type: 'move', dir: 'right' });
+
+    // 描画は takeTurn の直後に走る。ここで消えているとダメージ数値が出ない。
+    const corpse = state.enemies.find((e) => e.id === 'victim');
+    expect(corpse, 'とどめを刺した敵が描画前に消えている').toBeDefined();
+    expect(corpse?.hp).toBe(0);
+    expect(corpse?.hurtOnTurn).toBe(state.turn);
+    expect(corpse?.lastDamage).toBeGreaterThan(0);
+
+    // 次のターンの開始時に片付けられる
+    takeTurn(state, { type: 'wait' });
+    expect(state.enemies.some((e) => e.id === 'victim')).toBe(false);
+  });
+});
+
+describe('効果音の初期化', () => {
+  it('設定を有効にしただけでは AudioContext を作らない', async () => {
+    let constructed = 0;
+    class FakeContext {
+      state = 'running';
+      currentTime = 0;
+      constructor() {
+        constructed += 1;
+      }
+      createOscillator() {
+        return {
+          type: '',
+          frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} },
+          connect: () => ({ connect() {} }),
+          start() {},
+          stop() {},
+        };
+      }
+      createGain() {
+        return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: () => ({ connect() {} }) };
+      }
+    }
+    vi.stubGlobal('window', { AudioContext: FakeContext });
+
+    const { setSoundEnabled } = await import('../src/audio/sfx');
+    setSoundEnabled(true);
+
+    // 保存された設定が ON のまま再訪すると、この呼び出しは読み込み中に起きる。
+    // ここで作ると自動再生ポリシーで suspended のまま残る。
+    expect(constructed, '読み込み中に AudioContext を作っている').toBe(0);
+
+    vi.unstubAllGlobals();
+    setSoundEnabled(false);
   });
 });

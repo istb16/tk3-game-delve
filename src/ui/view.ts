@@ -7,7 +7,7 @@ import type {
   Slot,
   StatMods,
 } from '../core/types';
-import { ACHIEVEMENT_IDS } from '../data/achievements';
+import { ACHIEVEMENT_IDS, isAchievementId } from '../data/achievements';
 import type { Settings } from '../storage/settings';
 import type { RunOutcome, SaveData } from '../storage/save';
 import { computeScore } from '../storage/save';
@@ -203,6 +203,23 @@ function renderPerks(state: GameState, settings: Settings): string {
   return `<section class="panel"><h2 class="panel__title">${t(settings.lang, 'ui.perks')}</h2><ul class="perk__list">${tags}</ul></section>`;
 }
 
+/**
+ * ログの params を表示用に整える。
+ *
+ * game/ は表示言語を知らないので、実績のログには id しか入っていない。
+ * 名前に引き当てるのは ui/ の仕事。ここを飛ばすと `{name}` が
+ * そのまま画面に出る。
+ */
+function logParams(
+  entry: GameState['log'][number],
+  settings: Settings,
+): Readonly<Record<string, string | number>> {
+  if (entry.key !== 'log.achievement') return entry.params;
+  const id = entry.params['id'];
+  if (!isAchievementId(id)) return entry.params;
+  return { name: t(settings.lang, `ach.${id}` as const) };
+}
+
 function renderLog(state: GameState, settings: Settings): string {
   // 末尾が最新。新しいものを上に出すと視線が飛ぶので、下から積み上げる。
   const items = state.log
@@ -210,7 +227,7 @@ function renderLog(state: GameState, settings: Settings): string {
     .map(
       (entry) =>
         `<li class="log__line log__line--${entry.tone}">${escapeHtml(
-          t(settings.lang, entry.key, entry.params),
+          t(settings.lang, entry.key, logParams(entry, settings)),
         )}</li>`,
     )
     .join('');

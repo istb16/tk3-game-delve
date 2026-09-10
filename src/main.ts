@@ -25,8 +25,6 @@ installFavicon();
 
 let settings: Settings = loadSettings();
 applySettings();
-// 起動時に true でも AudioContext は作らない（最初の操作まで待つ）
-setSoundEnabled(settings.sound);
 
 let save: SaveData = loadSave();
 /** 直前の Run の結果。リザルト画面が「記録を更新したか」を判定するのに使う。 */
@@ -93,7 +91,9 @@ function dispatch(intent: Intent): void {
     const floorBefore = state.floor;
     const seenBefore = visibleEnemyIds(state);
 
-    const logBefore = state.log.length;
+    // 新しいログは id の差分で取る。配列の長さで区切ると、上限に達して
+    // 先頭から切り捨てられた時点で境界が意味を失い、以降ずっと「新規なし」になる。
+    const lastLogId = state.log[state.log.length - 1]?.id ?? -1;
     takeTurn(state, intent);
 
     // 実績は毎ターン見る。述語が9個なので負荷は無視できる。
@@ -120,7 +120,7 @@ function dispatch(intent: Intent): void {
       }
     }
     // 音は「何が起きたか」をログから引く。game/ は音の存在を知らない。
-    playCues(state.log.slice(logBefore).map((entry) => entry.key));
+    playCues(state.log.filter((entry) => entry.id > lastLogId).map((entry) => entry.key));
   }
   draw();
 }
