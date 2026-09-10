@@ -4,7 +4,7 @@ import { createGame } from '../src/game/state';
 import { takeTurn } from '../src/game/turn';
 import { dropItem, pickupAt } from '../src/game/loot';
 import { intentFromKey } from '../src/ui/input';
-import { isWalkable } from '../src/game/dungeon';
+import { isWalkable, tileIndex } from '../src/game/dungeon';
 
 function keyEvent(over: Partial<KeyboardEvent>): KeyboardEvent {
   return {
@@ -98,6 +98,51 @@ describe('アイテムを捨てる', () => {
     expect(dropItem(state, 0)).toBe(false);
     expect(state.player.inventory[0]?.count, 'アイテムが消えている').toBe(1);
     expect(state.log.some((e) => e.key === 'log.dropNoRoom')).toBe(true);
+  });
+
+  it('階段のマスには置かない（踏んだ瞬間に拾い直して降りてしまう）', () => {
+    const state = createGame(41);
+    const here = state.player.pos;
+
+    // 足元を埋めて、隣接のうち歩けるマスを1つだけ残し、そこを階段にする
+    const steps = [
+      { x: 0, y: -1 },
+      { x: 0, y: 1 },
+      { x: -1, y: 0 },
+      { x: 1, y: 0 },
+    ];
+    const walkable = steps
+      .map((d) => ({ x: here.x + d.x, y: here.y + d.y }))
+      .filter((p) => isWalkable(state.dungeon, p.x, p.y));
+    expect(walkable.length, '歩ける隣接マスが無いシード').toBeGreaterThan(0);
+
+    const stairs = walkable[0] as { x: number; y: number };
+    state.dungeon.stairs = { ...stairs };
+    state.dungeon.tiles[tileIndex(state.dungeon, stairs.x, stairs.y)] = 'stairs';
+
+    state.entities = [
+      { x: 0, y: 0 },
+      ...steps,
+    ]
+      .map((d) => ({ x: here.x + d.x, y: here.y + d.y }))
+      .filter((p) => isWalkable(state.dungeon, p.x, p.y))
+      .filter((p) => !(p.x === stairs.x && p.y === stairs.y))
+      .map((pos, i) => ({
+        id: `b${i}`,
+        kind: 'item' as const,
+        pos,
+        payload: { type: 'item' as const, itemId: 'key' as const, count: 1 },
+      }));
+
+    state.player.inventory[0] = { itemId: 'bomb', count: 1 };
+
+    // 残っている空きマスは階段だけ。置いてはいけないので捨てられない
+    expect(dropItem(state, 0)).toBe(false);
+    expect(state.player.inventory[0]?.count, 'アイテムが消えている').toBe(1);
+    expect(
+      state.entities.some((e) => e.pos.x === stairs.x && e.pos.y === stairs.y),
+      '階段のマスに置かれている',
+    ).toBe(false);
   });
 
   it('空のスロットを捨てようとしてもターンを消費しない', () => {

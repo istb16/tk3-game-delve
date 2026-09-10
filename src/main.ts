@@ -90,9 +90,13 @@ function visibleEnemyIds(current: GameState): Set<string> {
  * ゲームは入力駆動なので、ここが唯一の状態進行の入口になる。
  */
 function dispatch(intent: Intent): void {
-  // 何か別の操作をしたら選択は解除する。盤面が動いた後に
-  // 古い選択が残っていると、次のタップで意図しないアイテムを使ってしまう。
-  if (intent.type !== 'useItem' && intent.type !== 'dropItem') selectedSlot = null;
+  // Intent が来た = 盤面を動かす操作なので、タッチの選択は必ず解除する。
+  // 「1回目のタップで選択するだけ」はここに来ない（draw() で描き直すだけ）。
+  //
+  // 種類ごとに残す形にすると、自分で解除してから dispatch するクリック経路と
+  // 解除しないキーボード経路（Shift+数字で捨てる）で挙動が食い違い、
+  // 捨てた直後の1タップが説明なしの使用になる。
+  selectedSlot = null;
 
   if (intent.type === 'restart') {
     // 死亡中のみ再開を受け付ける。プレイ中の誤爆で Run が消えるのを防ぐ。
@@ -217,7 +221,6 @@ root.addEventListener('click', (event) => {
 
   const dropSlot = button.dataset['dropSlot'];
   if (dropSlot !== undefined) {
-    selectedSlot = null;
     dispatch({ type: 'dropItem', slot: Number(dropSlot) });
     return;
   }
@@ -232,7 +235,6 @@ root.addEventListener('click', (event) => {
       draw();
       return;
     }
-    selectedSlot = null;
     dispatch({ type: 'useItem', slot: action.slot });
     return;
   }

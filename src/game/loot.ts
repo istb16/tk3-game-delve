@@ -30,7 +30,7 @@ import {
   goldPilesPerFloor,
 } from '../core/constants';
 import { addLog, addLogOnce } from '../core/log';
-import type { ScrollEffect } from '../data/items';
+import type { ItemDef, ScrollEffect } from '../data/items';
 import { ITEMS, SCROLL_TABLE } from '../data/items';
 import { eventDef, eventsAt } from '../data/events';
 import {
@@ -273,6 +273,21 @@ export function swapEquipment(state: GameState, entity: Entity, next: Equipment)
   return false;
 }
 
+/**
+ * その階の宝箱から出してよいアイテム。
+ *
+ * 床に湧く条件（ITEMS の perFloor）をそのまま流用する。宝箱だけ素通しにすると
+ * 「Elixir は4階から」「Key は鍵つきの宝箱がある階から」という制限が
+ * 片方の経路だけで無効になり、1階の宝箱から Elixir や使い道のない Key が出る。
+ * roll に 0 を渡すのは「確率を通ったときに出るか」を見たいから。
+ */
+function chestItemsAt(floor: number): readonly ItemDef[] {
+  const pool = ITEMS.filter((item) => item.perFloor(floor, 0) > 0);
+  // Potion は常に出るので空にはならないが、テーブルを書き換えても
+  // 宝箱が壊れないよう保険を残す
+  return pool.length > 0 ? pool : ITEMS;
+}
+
 function rollChestReward(state: GameState, locked = false): Omit<Entity, 'pos'> {
   const rng = state.rng;
   const floor = state.floor;
@@ -292,7 +307,7 @@ function rollChestReward(state: GameState, locked = false): Omit<Entity, 'pos'> 
   if (roll < 0.45) {
     payload = { type: 'gold', amount: goldPileAmount(floor, rng.next()) * 2 };
   } else if (roll < 0.8) {
-    payload = { type: 'item', itemId: rng.pick(ITEMS).id, count: 1 };
+    payload = { type: 'item', itemId: rng.pick(chestItemsAt(floor)).id, count: 1 };
   } else {
     payload = {
       type: 'equipment',
@@ -378,27 +393,35 @@ export function dropItem(state: GameState, slot: number): boolean {
   return true;
 }
 
-/**
- * 置ける床を探す。足元 -> 隣接の順。
- *
- * 1マスに2つ置くと、pickupAt が先に見つけた1つしか拾えず、
- * もう1つが永久に取れなくなる。
- */
+/** 置ける床を探す。足元 -> 隣接の順。 */
 function freeDropSpot(state: GameState): Vec2 | null {
-  const occupied = (x: number, y: number): boolean =>
-    state.entities.some((e) => e.pos.x === x && e.pos.y === y);
-
   const here = state.player.pos;
-  if (!occupied(here.x, here.y)) return { ...here };
+  if (canDrop(state, here.x, here.y)) return { ...here };
 
   for (const step of DROP_NEIGHBORS) {
     const x = here.x + step.x;
     const y = here.y + step.y;
     if (!isWalkable(state.dungeon, x, y)) continue;
-    if (occupied(x, y)) continue;
+    if (!canDrop(state, x, y)) continue;
     return { x, y };
   }
   return null;
+}
+
+/**
+ * そのマスに置いてよいか。
+ *
+ * - 既に何か落ちているマスは駄目。1マスに2つ置くと pickupAt が先に見つけた
+ *   1つしか拾えず、もう1つが永久に取れなくなる。
+ * - **階段のマスも駄目。** 踏むと pickupAt -> descend の順に走るので、
+ *   置いた物をその場で拾い直して降りることになり「枠を空ける」目的が消える。
+ *   その間に枠が埋まっていれば、descend が entities を作り直して消滅する。
+ *   spawnEntities が階段を候補から外しているのと同じ理由。
+ */
+function canDrop(state: GameState, x: number, y: number): boolean {
+  const stairs = state.dungeon.stairs;
+  if (x === stairs.x && y === stairs.y) return false;
+  return !state.entities.some((e) => e.pos.x === x && e.pos.y === y);
 }
 
 const DROP_NEIGHBORS: readonly Vec2[] = [

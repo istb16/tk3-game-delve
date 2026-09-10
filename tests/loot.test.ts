@@ -6,6 +6,7 @@ import { takeTurn } from '../src/game/turn';
 import { pickupAt, useItem } from '../src/game/loot';
 import { equip } from '../src/game/progression';
 import { EQUIPMENT, toEquipment } from '../src/data/equipment';
+import { ITEMS } from '../src/data/items';
 
 function itemAt(state: GameState, itemId: ItemId): Entity {
   return {
@@ -215,5 +216,38 @@ describe('宝箱', () => {
         state.entities.length > 0;
       expect(gained, `seed=${seed} 宝箱を開けたのに何も起きていない`).toBe(true);
     }
+  });
+});
+
+describe('宝箱の中身', () => {
+  /** 宝箱を1つ開けて、手に入ったアイテムの種類を返す。 */
+  function openChestAt(seed: number): ItemId[] {
+    const state = createGame(seed);
+    state.entities = [
+      { id: 'c', kind: 'chest', pos: { ...state.player.pos }, payload: { type: 'chest', locked: false } },
+    ];
+    pickupAt(state, state.player.pos);
+
+    const got: ItemId[] = [];
+    for (const stack of state.player.inventory) if (stack) got.push(stack.itemId);
+    for (const e of state.entities) if (e.payload.type === 'item') got.push(e.payload.itemId);
+    return got;
+  }
+
+  it('その階に湧かないアイテムは出さない', () => {
+    // 1階では Elixir（4階から）と Key（鍵つきの宝箱がある階から）は出てはいけない。
+    // 宝箱だけ ITEMS から素通しで選ぶと、perFloor の制限が片方の経路で無効になる。
+    const banned = ITEMS.filter((item) => item.perFloor(1, 0) === 0).map((item) => item.id);
+    expect(banned, '1階で制限されるアイテムが無い（テーブルの前提が変わった）').not.toHaveLength(0);
+
+    let items = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      for (const itemId of openChestAt(seed)) {
+        items += 1;
+        expect(banned, `seed=${seed} で ${itemId} が1階の宝箱から出た`).not.toContain(itemId);
+      }
+    }
+    // 検査対象が本当に出ていたことを確かめる（0件なら何も検証していない）
+    expect(items, '宝箱からアイテムが1つも出ていない').toBeGreaterThan(0);
   });
 });

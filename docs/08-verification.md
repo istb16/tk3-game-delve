@@ -31,7 +31,7 @@ tests/
 ├─ abilities.test.ts        出現テーブル・敵の特殊能力・継続効果
 ├─ events.test.ts           ランダムイベント・巻物・鍵
 ├─ achievements.test.ts     実績の判定と永続化
-├─ sprites.test.ts          ドット絵の形式と識別性
+├─ sprites.test.ts          ドット絵の形式・識別性・スプライト名の網羅
 ├─ regression.test.ts       一度本番に入った不具合の退行テスト
 ├─ storage.test.ts          設定と記録の永続化
 └─ difficulty.test.ts       到達階層の分布（受け入れ基準）

@@ -749,7 +749,9 @@ kbd {
 }
 
 .slot:hover .tip,
-.slot__btn:focus-visible + .tip,
+/* `+` ではなく `~` を使う。.slot__btn と .tip の間には「捨てる」ボタンが挟まるので、
+   隣接セレクタでは一致せず、Tab でフォーカスしても説明が出なくなる。 */
+.slot__btn:focus-visible ~ .tip,
 .slot--selected .tip,
 .gear--filled:hover .tip {
   opacity: 1;
@@ -891,6 +893,9 @@ kbd {
 
 .stage__board {
   position: relative;
+  /* 演出を盤面の中に閉じ込める。fx--reveal は自分の高さぶん上下に動き、
+     fx--blast は 1.7 倍に膨らむので、切り取らないと HUD やサイドパネルに乗る。 */
+  overflow: hidden;
 }
 
 @keyframes delve-flash {

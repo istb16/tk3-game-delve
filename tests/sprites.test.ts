@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { SpriteDef } from '../src/ui/pixel';
 import { SPRITE_SIZE, validateSprite } from '../src/ui/pixel';
-import { allSprites } from '../src/ui/sprites';
+import { allSprites, enemySpriteId, entitySpriteId, itemSpriteId } from '../src/ui/sprites';
+import { ITEMS } from '../src/data/items';
+import { ENEMIES } from '../src/data/enemies';
+import { EQUIPMENT, toEquipment } from '../src/data/equipment';
+import type { EntityPayload } from '../src/core/types';
 import { ELIXIR_HEAL, POTION_HEAL } from '../src/core/constants';
 
 interface Box {
@@ -131,6 +135,57 @@ describe('アイテムの説明', () => {
         expect(text.length, `${lang}/${key}`).toBeGreaterThan(0);
         expect(text, `${lang}/${key} にプレースホルダが残っている`).not.toContain('{');
       }
+    }
+  });
+});
+
+/*
+ * スプライト名の網羅。
+ *
+ * SPRITES のキーは アイテム・敵・タイル・装備が混在するので `Record<string, _>`
+ * にしてある。つまり**追加漏れを型で防げない**。実際に「敵が全部ゴブリンで
+ * 描かれる」状態を一度作っている。テーブルを足したら描けることをここで担保する。
+ */
+describe('スプライト名の網羅', () => {
+  const ids = new Set(allSprites().map((s) => s.id));
+
+  it('すべてのアイテムに絵がある', () => {
+    for (const item of ITEMS) {
+      expect(ids.has(itemSpriteId(item.id)), `${item.id} の絵が無い`).toBe(true);
+    }
+  });
+
+  it('すべての敵に絵があり、別々の絵を使っている', () => {
+    const used = new Set<string>();
+    for (const def of ENEMIES) {
+      const id = enemySpriteId(def.kind, 0);
+      expect(ids.has(id), `${def.kind} の絵が無い`).toBe(true);
+      // 借り物の絵を残したまま出荷しないための番人
+      expect(used.has(id), `${def.kind} が他の敵と同じ絵を使っている`).toBe(false);
+      used.add(id);
+    }
+  });
+
+  it('床に落ちているものすべてに絵がある', () => {
+    const anyEquipment = EQUIPMENT[0];
+    if (!anyEquipment) throw new Error('装備テーブルが空');
+
+    const payloads: EntityPayload[] = [
+      { type: 'item', itemId: 'potion', count: 1 },
+      { type: 'gold', amount: 1 },
+      { type: 'chest', locked: false },
+      { type: 'event', eventId: 'shrine' },
+      { type: 'equipment', equipment: toEquipment(anyEquipment), declinedAgainst: null },
+    ];
+    for (const payload of payloads) {
+      const id = entitySpriteId({ id: 'e', kind: payload.type, pos: { x: 0, y: 0 }, payload });
+      expect(ids.has(id), `${payload.type} の絵が無い`).toBe(true);
+    }
+  });
+
+  it('装備スロットすべてに絵がある', () => {
+    for (const slot of ['weapon', 'armor', 'ring'] as const) {
+      expect(ids.has(`sp-${slot}-0`), `${slot} の絵が無い`).toBe(true);
     }
   });
 });
