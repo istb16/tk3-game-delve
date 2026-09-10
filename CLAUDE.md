@@ -31,6 +31,10 @@ npm run build      # tsc → vite build → 単一HTML化 → dist/delve.html
 `npm run build` の後は `dist/delve.html` をブラウザで直接開いて（`file://` で）動作確認する。
 単一ファイル化の破綻はここでしか見つからない。
 
+`main` に push すると `.github/workflows/deploy.yml` が `dist/delve.html` を作り直し、
+`istb16/tk3-biz-html` の `public/sproj/delve.html` を上書きして公開まで繋がる
+（→ [docs/02 §2.7b](docs/02-architecture.md)）。**壊れたものを main に入れない。**
+
 ## アーキテクチャ
 
 詳細は [docs/02-architecture.md](docs/02-architecture.md)。要点だけ:

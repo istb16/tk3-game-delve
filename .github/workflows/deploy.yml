@@ -1,0 +1,69 @@
+# main に push されたら dist/delve.html を作り直し、
+# istb16/tk3-biz-html の public/sproj/delve.html を上書きする。
+#
+# 向こうのリポジトリは main への push で Firebase Hosting へデプロイするので、
+# ここから push した時点で公開まで繋がる。
+name: Deploy delve.html
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 上書きの順序を壊さないよう、同時に走らせない。
+# 走行中のジョブは止めない（古い成果物で上書きされるのを防ぐ）。
+concurrency:
+  group: deploy-biz-html
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # 壊れた delve.html が公開に流れないよう、テストを通してからビルドする。
+      # 型検査は npm run build（tsc --noEmit）に含まれる。
+      - run: npm test
+
+      - run: npm run build
+
+      # 出荷物は 1 ファイルだけ。それが本当に 1 枚できているかを確かめる。
+      - name: 単一ファイルであることを確認
+        run: |
+          test -f dist/delve.html
+          test "$(ls dist | wc -l)" -eq 1
+          echo "size: $(wc -c < dist/delve.html) bytes"
+
+      - name: 公開先のリポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          repository: istb16/tk3-biz-html
+          # 自動の GITHUB_TOKEN は自分のリポジトリしか触れないため、
+          # 書き込み可のデプロイキー（この 1 リポジトリだけに効く）を使う。
+          ssh-key: ${{ secrets.BIZ_HTML_DEPLOY_KEY }}
+          path: biz-html
+
+      - name: delve.html を差し替えて push
+        run: |
+          version=$(node -p "require('./package.json').version")
+          cp dist/delve.html biz-html/public/sproj/delve.html
+          cd biz-html
+          # 中身が変わっていなければ何もしない。
+          # docs だけの変更でも main は動くので、空コミットを積まないため。
+          if git diff --quiet -- public/sproj/delve.html; then
+            echo "delve.html に変化なし。push しない。"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/sproj/delve.html
+          git commit -m "delve: v${version} を反映 (istb16/tk3-game-delve@${GITHUB_SHA:0:7})"
+          git push

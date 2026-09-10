@@ -191,6 +191,26 @@ devDependency で、出荷される `dist/delve.html` には一切含まれな�
 
 ビルド後の検証手順は [08 §8.5](08-verification.md)。
 
+## 2.7b デプロイ
+
+`main` に push されると `.github/workflows/deploy.yml` が動く。
+
+```
+main に push
+  → npm ci → npm test → npm run build
+  → dist/delve.html が 1 枚だけできていることを確認
+  → istb16/tk3-biz-html の public/sproj/delve.html を上書きして push
+  → 向こうの Firebase Hosting デプロイが走り、公開される
+```
+
+- **テストを通してからビルドする。** 壊れた `delve.html` が公開に流れないため。
+- **中身が変わっていなければ push しない。** docs だけの変更でも `main` は動くので、
+  向こうのリポジトリに空コミットとデプロイを積まないため。
+- 認証は**書き込み可のデプロイキー**（シークレット `BIZ_HTML_DEPLOY_KEY`）。
+  Actions の自動 `GITHUB_TOKEN` は同じ owner でも他リポジトリへ push できない。
+  デプロイキーの効き先は `tk3-biz-html` の git 書き込みだけに閉じている。
+- `concurrency` で同時実行を止める。並走すると古い成果物で上書きされうる。
+
 ## 2.8 命名規約
 
 | 対象 | 規約 | 例 |
