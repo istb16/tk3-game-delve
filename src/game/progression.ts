@@ -48,6 +48,10 @@ export function recalcStats(player: Player): void {
   // 3. パーク（重複取得ぶんはそのまま積み上がる）
   for (const perk of player.perks) apply(perkDef(perk).mods);
 
+  // 4. イベントや巻物による恒久的な補正。
+  // ここを忘れると、次にレベルが上がった瞬間に祭壇の祝福も呪いも消える。
+  apply(player.bonuses);
+
   // 乗算は加算をすべて足した後に掛ける。順序を変えると装備の付け外しで値がずれる。
   player.maxHp = Math.max(1, Math.floor(maxHp));
   player.attack = Math.max(1, applyPercent(attack, attackPct));
@@ -105,6 +109,18 @@ export function takePerk(state: GameState, perk: PerkId): void {
 
 export function hasPerk(player: Player, perk: PerkId): boolean {
   return player.perks.includes(perk);
+}
+
+/**
+ * 装備でもパークでもない恒久的な補正を足す（イベント・巻物の呪いなど）。
+ * recalcStats はレベル・装備・パークから毎回作り直すので、
+ * それ以外の出所はここに集約しないと次の再計算で消える。
+ */
+export function addBonus(player: Player, mods: StatMods): void {
+  for (const key of Object.keys(mods) as (keyof StatMods)[]) {
+    player.bonuses[key] = (player.bonuses[key] ?? 0) + (mods[key] ?? 0);
+  }
+  recalcStats(player);
 }
 
 // --- 装備 --------------------------------------------------------------------

@@ -1,9 +1,10 @@
-import type { GameState, PendingChoice, PerkId, Slot, StatMods } from '../core/types';
+import type { EventId, GameState, PendingChoice, PerkId, Slot, StatMods } from '../core/types';
 import type { Settings } from '../storage/settings';
 import type { RunOutcome, SaveData } from '../storage/save';
 import { computeScore } from '../storage/save';
 import { renderBoard } from './board';
 import { renderHud } from './hud';
+import type { MessageKey } from './i18n';
 import { t } from './i18n';
 import { itemSpriteId } from './sprites';
 
@@ -27,6 +28,7 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
     <main class="stage">
       <div class="stage__board">${renderBoard(state, settings)}</div>
       <aside class="stage__side">
+        ${renderStatus(state, settings)}
         ${renderEquipment(state, settings)}
         ${renderItems(state, settings)}
         ${renderPerks(state, settings)}
@@ -52,6 +54,23 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
 }
 
 // --- パネル ------------------------------------------------------------------
+
+/**
+ * 継続効果。何に削られているのかを画面から読めるようにする。
+ * 効果が1つもないときはパネルごと出さない — 常時空欄が居座ると視線の邪魔になる。
+ */
+function renderStatus(state: GameState, settings: Settings): string {
+  const effects = state.player.effects.filter((e) => e.turns > 0);
+  if (effects.length === 0) return '';
+
+  const tags = effects
+    .map((effect) => {
+      const name = escapeHtml(t(settings.lang, `status.${effect.kind}` as const));
+      return `<li class="status status--${effect.kind}">${name}<span class="status__turns">${effect.turns}</span></li>`;
+    })
+    .join('');
+  return `<section class="panel"><h2 class="panel__title">${t(settings.lang, 'ui.status')}</h2><ul class="status__list">${tags}</ul></section>`;
+}
 
 const SLOTS: readonly Slot[] = ['weapon', 'armor', 'ring'];
 
@@ -157,9 +176,57 @@ function renderDpad(settings: Settings): string {
 function renderChoiceModal(state: GameState, settings: Settings): string {
   const choice = state.pendingChoices[0];
   if (!choice) return '';
-  return choice.kind === 'levelup'
-    ? renderLevelUpModal(choice, settings)
-    : renderGearModal(choice, settings);
+  if (choice.kind === 'levelup') return renderLevelUpModal(choice, settings);
+  if (choice.kind === 'event') return renderEventModal(choice, settings);
+  return renderGearModal(choice, settings);
+}
+
+/**
+ * イベントごとの選択肢のメッセージキー。
+ *
+ * `opt.${id}${i}` のようにテンプレートで組み立てると型で守れなくなる。
+ * 明示的に並べておけば、イベントを増やしたときに書き忘れがコンパイルで止まる。
+ */
+const EVENT_OPTIONS: Record<EventId, readonly (readonly [MessageKey, MessageKey])[]> = {
+  shrine: [['opt.shrine0', 'optDesc.shrine0']],
+  merchant: [
+    ['opt.merchant0', 'optDesc.merchant0'],
+    ['opt.merchant1', 'optDesc.merchant1'],
+  ],
+  cursedChest: [['opt.cursedChest0', 'optDesc.cursedChest0']],
+  healingSpring: [['opt.healingSpring0', 'optDesc.healingSpring0']],
+  strangeAltar: [['opt.strangeAltar0', 'optDesc.strangeAltar0']],
+  hiddenRoom: [['opt.hiddenRoom0', 'optDesc.hiddenRoom0']],
+  treasury: [['opt.treasury0', 'optDesc.treasury0']],
+};
+
+/**
+ * ランダムイベント。最後の選択肢は常に「立ち去る」。
+ * 何も賭けずに済ませる道を必ず残しておかないと、イベントは判断ではなく強制になる。
+ */
+function renderEventModal(
+  choice: Extract<PendingChoice, { kind: 'event' }>,
+  settings: Settings,
+): string {
+  const lang = settings.lang;
+  const id = choice.eventId;
+  const options: string[] = (EVENT_OPTIONS[id] ?? []).map(([label, desc], i) =>
+    choiceButton(i, escapeHtml(t(lang, label)), escapeHtml(t(lang, desc))),
+  );
+  options.push(
+    choiceButton(
+      choice.optionCount - 1,
+      escapeHtml(t(lang, 'opt.leave')),
+      escapeHtml(t(lang, 'optDesc.leave')),
+    ),
+  );
+
+  return modal(
+    'event',
+    t(lang, `event.${id}` as const),
+    t(lang, `eventLead.${id}` as const),
+    options.join(''),
+  );
 }
 
 function renderLevelUpModal(

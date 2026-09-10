@@ -105,6 +105,11 @@ describe('アイテムの使用', () => {
         exp: 7,
         gold: 3,
         steps: 0,
+        effects: [],
+        evasion: 0,
+        ability: null,
+        revived: false,
+        split: false,
       },
     ];
     const expBefore = state.player.exp;
@@ -144,7 +149,7 @@ describe('装備', () => {
         id: 'w',
         kind: 'equipment',
         pos: { ...state.player.pos },
-        payload: { type: 'equipment', equipment: weak },
+        payload: { type: 'equipment', equipment: weak, declinedAgainst: null },
       },
     ];
     pickupAt(state, state.player.pos);
@@ -165,7 +170,7 @@ describe('装備', () => {
         id: 'w',
         kind: 'equipment',
         pos: { ...state.player.pos },
-        payload: { type: 'equipment', equipment: strong },
+        payload: { type: 'equipment', equipment: strong, declinedAgainst: null },
       },
     ];
     pickupAt(state, state.player.pos);
@@ -190,7 +195,7 @@ describe('宝箱', () => {
           id: 'c',
           kind: 'chest',
           pos: { ...state.player.pos },
-          payload: { type: 'chest', opened: false },
+          payload: { type: 'chest', locked: false },
         },
       ];
       const goldBefore = state.player.gold;

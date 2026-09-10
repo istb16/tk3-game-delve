@@ -1,14 +1,18 @@
-import type { Dungeon, Enemy, GameState, Vec2 } from '../core/types';
+import type { Dungeon, Enemy, EnemyKind, GameState, Vec2 } from '../core/types';
 import type { EnemyDef } from '../data/enemies';
 import type { Rng } from '../core/rng';
-import { SPAWN_POOL, spawnWeight } from '../data/enemies';
+import { ENEMIES, SPAWN_POOL, bossDef, spawnWeight } from '../data/enemies';
 import {
   ENEMY_AGGRO_RANGE,
+  GUARD_CHANCE,
   SPAWN_MIN_DISTANCE,
+  SPLIT_COUNT,
+  SPLIT_RATIO,
   atkScale,
   defScale,
   enemyCountFor,
   hpScale,
+  isBossFloor,
 } from '../core/constants';
 import {
   UNREACHABLE,
@@ -19,13 +23,18 @@ import {
   tileIndex,
 } from './dungeon';
 import { enemyAttack } from './combat';
+import { applyStatus, hasStatus } from './status';
+import { addLog } from '../core/log';
 
 let nextEnemyId = 0;
 
 // --- 生成 --------------------------------------------------------------------
 
 export function spawnEnemies(rng: Rng, dungeon: Dungeon, floor: number): Enemy[] {
-  const count = enemyCountFor(floor);
+  const boss = isBossFloor(floor);
+  // ボス階では雑魚を減らす。ボスと群れの両方を同時に相手取らせると、
+  // 「ボスとの一騎打ち」という山場が群れに埋もれる。
+  const count = boss ? Math.max(2, enemyCountFor(floor) - 3) : enemyCountFor(floor);
 
   // start から一定距離離れた到達可能マスだけを候補にする。
   // 開幕から選択の余地なく殴られる状況を作らないため。
@@ -45,7 +54,36 @@ export function spawnEnemies(rng: Rng, dungeon: Dungeon, floor: number): Enemy[]
   for (let i = 0; i < count && i < candidates.length; i++) {
     enemies.push(createEnemy(pickWeighted(rng, floor), candidates[i] as Vec2, floor));
   }
+
+  // ボスは最後に、プレイヤーから最も遠いマスへ置く。
+  // 降りた瞬間に鉢合わせると、準備する余地がないまま山場が終わる。
+  if (boss) {
+    const spot = farthestCandidate(dungeon, dist, enemies);
+    if (spot) enemies.push(createEnemy(bossDef(), spot, floor));
+  }
   return enemies;
+}
+
+function farthestCandidate(
+  dungeon: Dungeon,
+  dist: readonly number[],
+  taken: readonly Enemy[],
+): Vec2 | null {
+  const occupied = new Set(taken.map((e) => tileIndex(dungeon, e.pos.x, e.pos.y)));
+  let best: Vec2 | null = null;
+  let bestDist = -1;
+  for (let y = 0; y < dungeon.height; y++) {
+    for (let x = 0; x < dungeon.width; x++) {
+      const i = tileIndex(dungeon, x, y);
+      if (occupied.has(i)) continue;
+      const d = dist[i] ?? UNREACHABLE;
+      if (d > bestDist) {
+        bestDist = d;
+        best = { x, y };
+      }
+    }
+  }
+  return best;
 }
 
 /**
@@ -58,7 +96,10 @@ function pickWeighted(rng: Rng, floor: number): EnemyDef {
   const weights = SPAWN_POOL.map((def) => spawnWeight(def, floor));
   const total = weights.reduce((sum, w) => sum + w, 0);
 
-  if (total <= 0) return deepestOf(SPAWN_POOL);
+  // 重みが全て 0 になるのは「深すぎてガウスが潰れた」ときだけであってほしい。
+  // minFloor で弾かれた結果ではないことを、出現可能な候補に絞ってから判定する。
+  const allowed = SPAWN_POOL.filter((def) => def.minFloor <= floor);
+  if (total <= 0) return deepestOf(allowed.length > 0 ? allowed : SPAWN_POOL);
 
   let roll = rng.next() * total;
   for (let i = 0; i < SPAWN_POOL.length; i++) {
@@ -92,7 +133,84 @@ function createEnemy(def: EnemyDef, pos: Vec2, floor: number): Enemy {
     exp: Math.floor(def.exp * hpScale(floor)),
     gold: Math.floor(def.gold * hpScale(floor)),
     steps: 0,
+    effects: [],
+    evasion: def.evasion,
+    ability: def.ability,
+    revived: false,
+    split: false,
   };
+}
+
+/**
+ * Slime の分裂で生まれる子。親の半分の HP で、二度と分裂しない。
+ * 分裂が連鎖すると1体から際限なく増え、フロアが Slime で埋まる。
+ */
+export function splitChildren(parent: Enemy, state: GameState): Enemy[] {
+  const children: Enemy[] = [];
+  const spots = freeNeighbors(state, parent.pos, SPLIT_COUNT);
+  const hp = Math.max(1, Math.floor(parent.maxHp * SPLIT_RATIO));
+
+  for (const pos of spots) {
+    children.push({
+      ...parent,
+      id: `enemy-${nextEnemyId++}`,
+      pos: { ...pos },
+      hp,
+      maxHp: hp,
+      // 経験値とゴールドも半分。分裂で総取得量が増えると稼ぎ場になる。
+      exp: Math.floor(parent.exp / 2),
+      gold: Math.floor(parent.gold / 2),
+      effects: [],
+      steps: 0,
+      split: true,
+    });
+  }
+  return children;
+}
+
+/**
+ * イベントの対価として敵を湧かせる。
+ *
+ * プレイヤーの隣には置かない — 「報酬を受け取った瞬間に囲まれていた」は
+ * リスクではなく事故。近づいてくる余地を残す。
+ * @returns 実際に湧いた数
+ */
+export function spawnGuardian(state: GameState, count: number, kind?: EnemyKind): number {
+  const def = kind ? (ENEMIES.find((e) => e.kind === kind) ?? SPAWN_POOL[0]) : null;
+  const dist = bfsDistances(state.dungeon, state.player.pos);
+
+  const spots: Vec2[] = [];
+  for (let y = 0; y < state.dungeon.height; y++) {
+    for (let x = 0; x < state.dungeon.width; x++) {
+      const d = dist[tileIndex(state.dungeon, x, y)] ?? UNREACHABLE;
+      if (d < 3) continue;
+      if (enemyAt(state.enemies, x, y)) continue;
+      spots.push({ x, y });
+    }
+  }
+  state.rng.shuffle(spots);
+
+  let added = 0;
+  for (let i = 0; i < count && i < spots.length; i++) {
+    const chosen = def ?? pickWeighted(state.rng, state.floor);
+    state.enemies.push(createEnemy(chosen as EnemyDef, spots[i] as Vec2, state.floor));
+    added += 1;
+  }
+  return added;
+}
+
+function freeNeighbors(state: GameState, from: Vec2, limit: number): Vec2[] {
+  const found: Vec2[] = [];
+  for (const step of ORTHOGONAL) {
+    if (found.length >= limit) break;
+    const x = from.x + step.x;
+    const y = from.y + step.y;
+    if (!isWalkable(state.dungeon, x, y)) continue;
+    if (state.player.pos.x === x && state.player.pos.y === y) continue;
+    if (enemyAt(state.enemies, x, y)) continue;
+    found.push({ x, y });
+  }
+  return found;
 }
 
 // --- AI ----------------------------------------------------------------------
@@ -106,6 +224,18 @@ function createEnemy(def: EnemyDef, pos: Vec2, floor: number): Enemy {
 export function actEnemy(state: GameState, enemy: Enemy, rng: Rng): void {
   const player = state.player;
   if (enemy.hp <= 0) return;
+
+  // Warden は隣接時に守りを固める。攻撃を1回捨てる代わりに硬くなる交換。
+  if (
+    enemy.ability === 'guard' &&
+    manhattan(enemy.pos, player.pos) === 1 &&
+    !hasStatus(enemy, 'guard') &&
+    rng.chance(GUARD_CHANCE)
+  ) {
+    applyStatus(enemy, 'guard', 2, 0);
+    addLog(state.log, 'log.guarded', { name: enemy.name }, 'info');
+    return;
+  }
 
   if (manhattan(enemy.pos, player.pos) === 1) {
     enemyAttack(state, enemy);

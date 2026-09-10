@@ -24,6 +24,11 @@ function placeEnemy(state: GameState, dx: number, dy: number, hp = 100): Enemy {
     exp: 6,
     gold: 5,
     steps: 0,
+    effects: [],
+    evasion: 0,
+    ability: null,
+    revived: false,
+    split: false,
   };
   state.enemies.push(enemy);
   return enemy;
@@ -171,7 +176,7 @@ describe('ターン進行', () => {
 describe('ログの順序', () => {
   it('とどめの一撃は撃破ログより先に出る', () => {
     const state = createGame(101);
-    const target = placeEnemy(state, 1, 0, 1);
+    placeEnemy(state, 1, 0, 1);
     const before = state.log.length;
 
     takeTurn(state, { type: 'move', dir: 'right' });

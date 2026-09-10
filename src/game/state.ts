@@ -37,6 +37,7 @@ export function createGame(seed: number = randomSeed()): GameState {
     stats: {
       startedAt: Date.now(),
       kills: 0,
+      bossKills: 0,
       goldEarned: 0,
       deepestFloor: floor,
       chestsOpened: 0,

@@ -73,8 +73,14 @@ export function renderBoard(state: GameState, settings: Settings): string {
   for (const enemy of state.enemies) {
     if (!d.visible[tileIndex(d, enemy.pos.x, enemy.pos.y)]) continue;
     const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
+    // 状態異常は盤面でも分かるようにする。ログを遡らないと分からない状態は、
+    // 「今どうなっているか」を判断材料にできない。
+    const marks = enemy.effects
+      .filter((e) => e.turns > 0)
+      .map((e) => ` actor--${e.kind}`)
+      .join('');
     parts.push(
-      `<g class="actor actor--enemy actor--${enemy.kind}">` +
+      `<g class="actor actor--enemy actor--${enemy.kind}${marks}">` +
         `<use href="#${enemySpriteId(enemy.kind, frameOf(enemy))}" x="${enemy.pos.x}" y="${enemy.pos.y}" width="1" height="1"/>` +
         `<rect class="actor__hp-track" x="${enemy.pos.x + 0.15}" y="${enemy.pos.y + 0.02}" width="0.7" height="0.07" rx="0.035"/>` +
         `<rect class="actor__hp-fill" x="${enemy.pos.x + 0.15}" y="${enemy.pos.y + 0.02}" width="${(0.7 * hpRatio).toFixed(3)}" height="0.07" rx="0.035"/>` +

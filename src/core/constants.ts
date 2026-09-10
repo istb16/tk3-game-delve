@@ -11,6 +11,24 @@ export const MAX_LOG = 60;
 /** ボスが出現する階層の間隔（5, 10, 15, ...） */
 export const BOSS_INTERVAL = 5;
 
+export function isBossFloor(floor: number): boolean {
+  return floor % BOSS_INTERVAL === 0;
+}
+
+/** イベントが発生する確率（docs/03 §3.7） */
+export function eventChance(floor: number): number {
+  return Math.min(0.15 + floor * 0.01, 0.4);
+}
+
+/** 鍵つきの宝箱になる確率。鍵を持ち歩く価値をここで作る。 */
+export const LOCKED_CHEST_CHANCE = 0.35;
+
+/** 商人の売値 */
+export const SHOP_PRICE = { potion: 30, equipment: 80 } as const;
+
+/** 祭壇に捧げるゴールドと、その見返り */
+export const SHRINE_COST = 50;
+
 /** プレイヤー初期値 */
 export const PLAYER_BASE = {
   maxHp: 30,
@@ -105,6 +123,50 @@ export const SCORE_WEIGHT = {
   level: 200,
 } as const;
 
+// --- 継続効果（Phase 3） ---------------------------------------------------
+
+/** 毒: 長く薄く削る。逃げても消えないことに意味がある。 */
+export const POISON = { turns: 4, power: 4 } as const;
+
+/** 火傷: 短く強い。毒との違いを「即効性」に置く。 */
+export const BURN = { turns: 3, power: 7 } as const;
+
+/** 鈍足の持続ターン数。1ターンでも、行動回数が減るのは大きい。 */
+export const SLOW_TURNS = 1;
+
+/** 防御態勢中の被ダメージ倍率 */
+export const GUARD_REDUCTION = 0.5;
+
+/** Warden が防御態勢を取る確率。攻撃を1回捨てる代わりに硬くなる。 */
+export const GUARD_CHANCE = 0.3;
+
+/** Shield パーク: 無効化してから次に使えるまでのターン数 */
+export const SHIELD_COOLDOWN = 3;
+
+/** パークによる状態異常の付与率 */
+export const POISON_ATTACK_CHANCE = 0.2;
+export const FIRE_DAMAGE_CHANCE = 0.15;
+
+/** Skeleton が復活する HP の割合 */
+export const REVIVE_RATIO = 0.3;
+
+/** Slime が分裂して生まれる子の HP の割合と数 */
+export const SPLIT_RATIO = 0.5;
+export const SPLIT_COUNT = 2;
+
+/** ボスが「怒り」状態に入る HP の割合と、その間の攻撃力倍率 */
+export const ENRAGE_THRESHOLD = 0.5;
+export const ENRAGE_MULTIPLIER = 1.5;
+
+/** 巻物の Rage: 攻撃力の倍率と持続ターン */
+export const SCROLL_RAGE = { turns: 3, power: 2 } as const;
+
+/** 巻物の全体攻撃のダメージ */
+export const SCROLL_BLAST_DAMAGE = 15;
+
+/** 巻物の呪いで減る最大HP */
+export const SCROLL_CURSE_MAX_HP = 5;
+
 /** Swift Step: 移動がターンを消費しない確率 */
 export const SWIFT_STEP_CHANCE = 0.25;
 
@@ -155,12 +217,12 @@ export function expToNextLevel(level: number): number {
  */
 export function hpScale(floor: number): number {
   const d = floor - 1;
-  return 1 + d * 0.19 + d * d * 0.011;
+  return 1 + d * 0.08 + d * d * 0.019;
 }
 
 export function atkScale(floor: number): number {
   const d = floor - 1;
-  return 1 + d * 0.11 + d * d * 0.007;
+  return 1 + d * 0.045 + d * d * 0.012;
 }
 
 export function defScale(floor: number): number {

@@ -1,4 +1,4 @@
-import type { Dir, GameState, Intent, PendingChoice, Vec2 } from '../core/types';
+import type { Dir, Enemy, GameState, Intent, PendingChoice, Vec2 } from '../core/types';
 import { SWIFT_STEP_CHANCE } from '../core/constants';
 import { isWalkable, tileAt, updateVisibility } from './dungeon';
 import { actEnemy, enemyAt } from './enemy';
@@ -7,6 +7,8 @@ import { pickupAt, swapEquipment, useItem } from './loot';
 import { equip, hasPerk, takePerk } from './progression';
 import { addLog } from '../core/log';
 import { descend } from './state';
+import { applyEvent } from './events';
+import { effectiveSpeed, tickStatuses } from './status';
 
 const DIRECTIONS: Record<Dir, Vec2> = {
   up: { x: 0, y: -1 },
@@ -31,6 +33,10 @@ export function takeTurn(state: GameState, intent: Intent): void {
   if (state.phase !== 'playing') return;
 
   const floorBefore = state.floor;
+  // 手番を持つのは「プレイヤーが動く前からいた敵」だけ。
+  // プレイヤーの行動中に生まれた敵（Slime の分裂、イベントの番人）に
+  // その場で手番を与えると、分裂や報酬の受け取りが実質「無料の攻撃」になる。
+  const actors = [...state.enemies];
   const consumed = resolvePlayerTurn(state, intent);
 
   // ターンを消費したかに関わらず視界を更新する。
@@ -43,7 +49,11 @@ export function takeTurn(state: GameState, intent: Intent): void {
 
   // 階段を降りた直後は、新フロアの敵に「到着した瞬間の1手」を与えない。
   const descended = state.floor !== floorBefore;
-  if (state.phase === 'playing' && !descended) resolveEnemyTurns(state);
+  if (state.phase === 'playing' && !descended) resolveEnemyTurns(state, actors);
+
+  // 継続効果はターンの最後にまとめて処理する。攻撃のたびに刻むと、
+  // 何に削られているのかがログから読み取れなくなる。
+  tickStatuses(state);
 
   state.enemies = state.enemies.filter((enemy) => enemy.hp > 0);
   openNextChoice(state);
@@ -82,6 +92,15 @@ function applyChoice(state: GameState, choice: PendingChoice, index: number): bo
     const perk = choice.options[index];
     if (!perk) return false;
     takePerk(state, perk);
+    return true;
+  }
+
+  if (choice.kind === 'event') {
+    if (index < 0 || index >= choice.optionCount) return false;
+    const entity = state.entities.find((e) => e.id === choice.entityId);
+    applyEvent(state, choice.eventId, entity, index);
+    // イベントのマスは一度きり。残すと同じ賭けを何度でも引き直せてしまう。
+    if (entity) state.entities = state.entities.filter((e) => e !== entity);
     return true;
   }
 
@@ -158,9 +177,10 @@ function resolveMove(state: GameState, step: Vec2): boolean {
   return true;
 }
 
-function resolveEnemyTurns(state: GameState): void {
-  for (const enemy of state.enemies) {
-    for (let i = 0; i < enemy.speed; i++) {
+function resolveEnemyTurns(state: GameState, actors: readonly Enemy[]): void {
+  for (const enemy of actors) {
+    const speed = effectiveSpeed(enemy);
+    for (let i = 0; i < speed; i++) {
       if (state.phase !== 'playing') return;
       if (enemy.hp <= 0) break;
       actEnemy(state, enemy, state.rng);

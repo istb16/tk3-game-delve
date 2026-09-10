@@ -16,17 +16,25 @@ import {
   INVENTORY_SIZE,
   MAX_STACK,
   POTION_HEAL,
+  LOCKED_CHEST_CHANCE,
+  SCROLL_BLAST_DAMAGE,
+  SCROLL_CURSE_MAX_HP,
+  SCROLL_RAGE,
   SPAWN_MIN_DISTANCE,
   chestsPerFloor,
+  eventChance,
   equipmentDropChance,
   goldPileAmount,
   goldPilesPerFloor,
 } from '../core/constants';
 import { addLog, addLogOnce } from '../core/log';
-import { ITEMS } from '../data/items';
-import { compareEquipment, equipmentAt, toEquipment } from '../data/equipment';
+import type { ScrollEffect } from '../data/items';
+import { ITEMS, SCROLL_TABLE } from '../data/items';
+import { eventDef, eventsAt } from '../data/events';
+import { compareEquipment, equipmentAt, rareEquipmentAt, toEquipment } from '../data/equipment';
 import { UNREACHABLE, bfsDistances, chebyshev, tileAt, tileIndex } from './dungeon';
-import { equip } from './progression';
+import { addBonus, equip } from './progression';
+import { applyStatus } from './status';
 import { gainGold } from './player';
 import { damageEnemy } from './combat';
 
@@ -61,7 +69,11 @@ export function spawnEntities(
     payloads.push({ type: 'gold', amount: goldPileAmount(floor, rng.next()) });
   }
   for (let i = 0; i < chestsPerFloor(rng.next()); i++) {
-    payloads.push({ type: 'chest', opened: false });
+    // 鍵つきは中身が良い代わりに Key を要求する。鍵を持ち歩く価値をここで作る。
+    payloads.push({ type: 'chest', locked: rng.chance(LOCKED_CHEST_CHANCE) });
+  }
+  if (rng.chance(eventChance(floor))) {
+    payloads.push({ type: 'event', eventId: rng.pick(eventsAt(floor)).id });
   }
   if (rng.chance(equipmentDropChance(floor))) {
     payloads.push({
@@ -125,16 +137,47 @@ function collect(state: GameState, entity: Entity): boolean {
       return collectItem(state, entity, payload.itemId, payload.count);
     case 'equipment':
       return collectEquipment(state, entity, payload);
-    case 'chest': {
-      state.stats.chestsOpened += 1;
-      addLog(state.log, 'log.openChest', {}, 'gold');
-      // 中身はその場で受け取る。受け取れなかった分（満杯・弱い装備）は
-      // 同じマスに残して拾い直せるようにする。
-      const reward: Entity = { ...rollChestReward(state), pos: { ...entity.pos } };
-      if (!collect(state, reward)) state.entities.push(reward);
-      return true;
+    case 'chest':
+      return openChest(state, entity, payload.locked);
+    case 'event': {
+      // 効果は選択してから。踏んだだけで結果が決まるとイベントが判断でなくなる。
+      state.pendingChoices.push({
+        kind: 'event',
+        eventId: payload.eventId,
+        entityId: entity.id,
+        optionCount: eventDef(payload.eventId).optionCount,
+      });
+      return false;
     }
   }
+}
+
+function openChest(state: GameState, entity: Entity, locked: boolean): boolean {
+  if (locked) {
+    const slot = state.player.inventory.findIndex((s) => s?.itemId === 'key');
+    if (slot === -1) {
+      addLogOnce(state.log, 'log.needKey', {}, 'info');
+      return false;
+    }
+    consumeSlot(state, slot);
+    addLog(state.log, 'log.useKey', {}, 'gold');
+  }
+
+  state.stats.chestsOpened += 1;
+  addLog(state.log, 'log.openChest', {}, 'gold');
+
+  // 中身はその場で受け取る。受け取れなかった分（満杯・弱い装備）は
+  // 同じマスに残して拾い直せるようにする。
+  const reward: Entity = { ...rollChestReward(state, locked), pos: { ...entity.pos } };
+  if (!collect(state, reward)) state.entities.push(reward);
+  return true;
+}
+
+function consumeSlot(state: GameState, slot: number): void {
+  const stack = state.player.inventory[slot];
+  if (!stack) return;
+  stack.count -= 1;
+  if (stack.count <= 0) state.player.inventory[slot] = null;
 }
 
 function collectItem(state: GameState, entity: Entity, itemId: ItemId, count: number): boolean {
@@ -214,11 +257,21 @@ export function swapEquipment(state: GameState, entity: Entity, next: Equipment)
   return false;
 }
 
-function rollChestReward(state: GameState): Omit<Entity, 'pos'> {
+function rollChestReward(state: GameState, locked = false): Omit<Entity, 'pos'> {
   const rng = state.rng;
   const floor = state.floor;
-  const roll = rng.next();
 
+  // 鍵つきは確定でレア以上。鍵を温存してきたことに報いる。
+  if (locked) {
+    const payload: EntityPayload = {
+      type: 'equipment',
+      equipment: rareEquipmentAt(floor, rng),
+      declinedAgainst: null,
+    };
+    return { id: `entity-${nextEntityId++}`, kind: payload.type, payload };
+  }
+
+  const roll = rng.next();
   let payload: EntityPayload;
   if (roll < 0.45) {
     payload = { type: 'gold', amount: goldPileAmount(floor, rng.next()) * 2 };
@@ -305,6 +358,12 @@ function applyItem(state: GameState, itemId: ItemId): boolean {
     }
     case 'bomb':
       return detonate(state);
+    case 'scroll':
+      return readScroll(state);
+    case 'key':
+      // 鍵は宝箱の前で自動的に使われる。単体で使う意味はない。
+      addLogOnce(state.log, 'log.needKey', {}, 'info');
+      return false;
     default:
       // 新しいアイテムを ItemId に足したらここで型エラーになる。
       // 分岐を書き忘れたまま「飲むと回復する」挙動を引き継がせないための番人。
@@ -348,6 +407,71 @@ function detonate(state: GameState): boolean {
   }
   addLog(state.log, 'log.useBomb', { hits, broken }, 'good');
   return true;
+}
+
+/**
+ * 巻物を読む。効果は重み付き抽選（docs/03 §3.5）。
+ * ハズレが 1 枠あるので、読むかどうか自体が判断になる。
+ */
+function readScroll(state: GameState): boolean {
+  const rng = state.rng;
+  const total = SCROLL_TABLE.reduce((sum, [, w]) => sum + w, 0);
+  let roll = rng.next() * total;
+  let chosen: ScrollEffect = 'blast';
+  for (const [effect, weight] of SCROLL_TABLE) {
+    roll -= weight;
+    if (roll < 0) {
+      chosen = effect;
+      break;
+    }
+  }
+
+  addLog(state.log, 'log.useScroll', {}, 'good');
+
+  switch (chosen) {
+    case 'blast': {
+      let hits = 0;
+      for (const enemy of [...state.enemies]) {
+        if (enemy.hp <= 0) continue;
+        damageEnemy(state, enemy, SCROLL_BLAST_DAMAGE);
+        hits += 1;
+      }
+      addLog(state.log, 'log.scrollBlast', { hits }, 'good');
+      return true;
+    }
+    case 'reveal': {
+      state.dungeon.explored.fill(true);
+      addLog(state.log, 'log.scrollReveal', {}, 'good');
+      return true;
+    }
+    case 'teleport': {
+      state.player.pos = { ...state.dungeon.stairs };
+      addLog(state.log, 'log.scrollTeleport', {}, 'good');
+      return true;
+    }
+    case 'rage': {
+      applyStatus(state.player, 'rage', SCROLL_RAGE.turns, SCROLL_RAGE.power);
+      addLog(state.log, 'log.scrollRage', { turns: SCROLL_RAGE.turns }, 'good');
+      return true;
+    }
+    case 'banish': {
+      const alive = state.enemies.filter((e) => e.hp > 0);
+      if (alive.length === 0) {
+        addLog(state.log, 'log.scrollBanish', { name: '-' }, 'info');
+        return true;
+      }
+      const victim = rng.pick(alive);
+      // 消滅は撃破ではない。経験値もゴールドも入らない。
+      victim.hp = 0;
+      addLog(state.log, 'log.scrollBanish', { name: victim.name }, 'good');
+      return true;
+    }
+    case 'curse': {
+      addBonus(state.player, { maxHp: -SCROLL_CURSE_MAX_HP });
+      addLog(state.log, 'log.scrollCurse', { amount: SCROLL_CURSE_MAX_HP }, 'bad');
+      return true;
+    }
+  }
 }
 
 function assertNever(value: never): never {

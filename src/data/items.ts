@@ -22,4 +22,37 @@ export const ITEMS: readonly ItemDef[] = [
     // 常時あると立ち回りが単調になるので、半分弱のフロアにだけ置く
     perFloor: (_floor, roll) => (roll < 0.45 ? 1 : 0),
   },
+  {
+    id: 'scroll',
+    name: 'Scroll',
+    // 当たりもハズレもある。頻繁に出ると「読むかどうか」の緊張が薄まる
+    perFloor: (_floor, roll) => (roll < 0.35 ? 1 : 0),
+  },
+  {
+    id: 'key',
+    name: 'Key',
+    // 鍵つきの宝箱に出会う頻度と釣り合わせる。余ると持ち歩く意味が消える
+    perFloor: (_floor, roll) => (roll < 0.4 ? 1 : 0),
+  },
+];
+
+/**
+ * 巻物の効果と重み（docs/03 §3.5）。
+ * ハズレを 1 枠だけ混ぜることで「読むかどうか」自体を判断にする。
+ */
+export type ScrollEffect =
+  | 'blast'
+  | 'reveal'
+  | 'teleport'
+  | 'rage'
+  | 'banish'
+  | 'curse';
+
+export const SCROLL_TABLE: readonly (readonly [ScrollEffect, number])[] = [
+  ['blast', 3],
+  ['reveal', 3],
+  ['teleport', 2],
+  ['rage', 2],
+  ['banish', 1],
+  ['curse', 1],
 ];

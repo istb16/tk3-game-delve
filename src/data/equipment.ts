@@ -13,52 +13,53 @@ export interface EquipmentDef {
   /** この階層以降で出現する */
   minFloor: number;
   mods: StatMods;
-  /**
-   * 特殊効果。null 以外は未実装なのでドロップ候補から外す。
-   * 敵の ability と同じ規律 — 設計書が約束した挙動を持たない物を出さない。
-   */
+  /** 命中時に確率で発動する効果 */
   effect: EffectId | null;
+  /** effect の発動率。効果なしなら 0。 */
+  effectChance: number;
 }
 
 export const EQUIPMENT: readonly EquipmentDef[] = [
   // --- Weapon ---
   { id: 'rustyDagger', name: 'Rusty Dagger', slot: 'weapon', rarity: 'common', minFloor: 1,
-    mods: { attack: 2 }, effect: null },
+    mods: { attack: 2 }, effect: null, effectChance: 0 },
   { id: 'ironSword', name: 'Iron Sword', slot: 'weapon', rarity: 'common', minFloor: 1,
-    mods: { attack: 5 }, effect: null },
+    mods: { attack: 5 }, effect: null, effectChance: 0 },
   { id: 'vampireFang', name: 'Vampire Fang', slot: 'weapon', rarity: 'rare', minFloor: 5,
-    mods: { attack: 4, lifesteal: 0.05 }, effect: null },
+    mods: { attack: 4, lifesteal: 0.05 }, effect: null, effectChance: 0 },
   { id: 'assassinKris', name: 'Assassin Kris', slot: 'weapon', rarity: 'rare', minFloor: 6,
-    mods: { attack: 6, crit: 0.15 }, effect: null },
-  // 継続ダメージ・鈍足はステータス効果（Phase 3）が要る
-  { id: 'flameBlade', name: 'Flame Blade', slot: 'weapon', rarity: 'rare', minFloor: 4,
-    mods: { attack: 8 }, effect: 'burn' },
+    mods: { attack: 6, crit: 0.15 }, effect: null, effectChance: 0 },
+    { id: 'flameBlade', name: 'Flame Blade', slot: 'weapon', rarity: 'rare', minFloor: 4,
+    mods: { attack: 8 }, effect: 'burn', effectChance: 0.1 },
+  // 設計書では「命中時に鈍足化」だったが、発動率を付けた。
+  // 速度1の敵にとって鈍足は行動を1回飛ばすのと同じで、確定発動だと
+  // 単体相手に永久に手番を渡さない完全なハメになる。
   { id: 'wardensMaul', name: "Warden's Maul", slot: 'weapon', rarity: 'epic', minFloor: 9,
-    mods: { attack: 12, crit: -0.05 }, effect: 'slow' },
+    mods: { attack: 12, crit: -0.05 }, effect: 'slow', effectChance: 0.35 },
 
   // --- Armor ---
   { id: 'leatherVest', name: 'Leather Vest', slot: 'armor', rarity: 'common', minFloor: 1,
-    mods: { defense: 2 }, effect: null },
+    mods: { defense: 2 }, effect: null, effectChance: 0 },
   { id: 'chainMail', name: 'Chain Mail', slot: 'armor', rarity: 'common', minFloor: 3,
-    mods: { defense: 4 }, effect: null },
+    mods: { defense: 4 }, effect: null, effectChance: 0 },
   { id: 'thornPlate', name: 'Thorn Plate', slot: 'armor', rarity: 'rare', minFloor: 6,
-    mods: { defense: 5, thorns: 3 }, effect: null },
+    mods: { defense: 5, thorns: 3 }, effect: null, effectChance: 0 },
   { id: 'shadowCloak', name: 'Shadow Cloak', slot: 'armor', rarity: 'rare', minFloor: 7,
-    mods: { defense: 3, evasion: 0.12 }, effect: null },
+    mods: { defense: 3, evasion: 0.12 }, effect: null, effectChance: 0 },
 
   // --- Ring ---
   { id: 'ringOfVigor', name: 'Ring of Vigor', slot: 'ring', rarity: 'common', minFloor: 2,
-    mods: { maxHp: 15 }, effect: null },
+    mods: { maxHp: 15 }, effect: null, effectChance: 0 },
   { id: 'ringOfFortune', name: 'Ring of Fortune', slot: 'ring', rarity: 'common', minFloor: 3,
-    mods: { goldPct: 0.3 }, effect: null },
+    mods: { goldPct: 0.3 }, effect: null, effectChance: 0 },
   { id: 'ringOfFury', name: 'Ring of Fury', slot: 'ring', rarity: 'rare', minFloor: 4,
-    mods: { attackPct: 0.1 }, effect: null },
+    mods: { attackPct: 0.1 }, effect: null, effectChance: 0 },
   { id: 'ringOfInsight', name: 'Ring of Insight', slot: 'ring', rarity: 'rare', minFloor: 5,
-    mods: { expPct: 0.2 }, effect: null },
+    mods: { expPct: 0.2 }, effect: null, effectChance: 0 },
 ];
 
-/** 効果が実装済みで、実際にドロップしうる装備。 */
-export const EQUIPMENT_POOL: readonly EquipmentDef[] = EQUIPMENT.filter((e) => e.effect === null);
+/** ドロップしうる装備。Phase 3 で全ての効果を実装したので全件が対象。 */
+export const EQUIPMENT_POOL: readonly EquipmentDef[] = EQUIPMENT;
 
 export function equipmentAt(floor: number): readonly EquipmentDef[] {
   const candidates = EQUIPMENT_POOL.filter((e) => e.minFloor <= floor);
@@ -67,7 +68,22 @@ export function equipmentAt(floor: number): readonly EquipmentDef[] {
 }
 
 export function toEquipment(def: EquipmentDef): Equipment {
-  return { id: def.id, name: def.name, slot: def.slot, rarity: def.rarity, mods: def.mods };
+  return {
+    id: def.id,
+    name: def.name,
+    slot: def.slot,
+    rarity: def.rarity,
+    mods: def.mods,
+    effect: def.effect,
+    effectChance: def.effectChance,
+  };
+}
+
+/** 確定でレア以上を出す（ボス撃破の報酬など）。 */
+export function rareEquipmentAt(floor: number, rng: { pick<T>(x: readonly T[]): T }): Equipment {
+  const rare = EQUIPMENT_POOL.filter((e) => e.minFloor <= floor && e.rarity !== 'common');
+  const pool = rare.length > 0 ? rare : EQUIPMENT_POOL.filter((e) => e.minFloor <= floor);
+  return toEquipment(rng.pick(pool.length > 0 ? pool : EQUIPMENT_POOL));
 }
 
 /**
@@ -106,6 +122,19 @@ export function compareEquipment(candidate: Equipment, current: Equipment | null
     const b = current.mods[key] ?? 0;
     if (a > b) anyBetter = true;
     else if (a < b) anyWorse = true;
+  }
+
+  // 命中時の効果も比較軸に入れる。数値が同じでも「燃やせる」武器は別物で、
+  // ここを見ないと効果付きの装備が数値だけで下位互換に見えてしまう。
+  const aEffect = candidate.effect !== null;
+  const bEffect = current.effect !== null;
+  if (aEffect !== bEffect) {
+    if (aEffect) anyBetter = true;
+    else anyWorse = true;
+  } else if (aEffect && candidate.effect !== current.effect) {
+    // 別種の効果同士は優劣を付けられない
+    anyBetter = true;
+    anyWorse = true;
   }
 
   if (anyBetter && !anyWorse) return 'better';

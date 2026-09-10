@@ -12,7 +12,7 @@ export interface PerkDef {
   /** 選択時に1回だけ起きること（例: Vitality の全回復） */
   onTake?: 'fullHeal';
   /** ステータス補正では表せない、ロジック側で参照するフラグ */
-  behavior?: 'treasureSense' | 'swiftStep';
+  behavior?: 'treasureSense' | 'swiftStep' | 'poisonAttack' | 'fireDamage' | 'shield';
 }
 
 export const PERKS: readonly PerkDef[] = [
@@ -23,6 +23,9 @@ export const PERKS: readonly PerkDef[] = [
   { id: 'lifesteal', name: 'Lifesteal', mods: { lifesteal: 0.08 } },
   { id: 'treasureSense', name: 'Treasure Sense', mods: {}, behavior: 'treasureSense' },
   { id: 'swiftStep', name: 'Swift Step', mods: {}, behavior: 'swiftStep' },
+  { id: 'poisonAttack', name: 'Poison Attack', mods: {}, behavior: 'poisonAttack' },
+  { id: 'fireDamage', name: 'Fire Damage', mods: {}, behavior: 'fireDamage' },
+  { id: 'shield', name: 'Shield', mods: {}, behavior: 'shield' },
 ];
 
 const BY_ID = new Map(PERKS.map((p) => [p.id, p]));
@@ -34,7 +37,7 @@ export function perkDef(id: PerkId): PerkDef {
 }
 
 /**
- * Treasure Sense / Swift Step は重ねて取っても意味が薄いので、
+ * 挙動系のパーク（発動率や常時効果）は重ねて取っても意味がないので、
  * すでに持っているものは選択肢から外す。攻撃力+10% のような数値系は重複を許す。
  */
 export function offerablePerks(taken: readonly PerkId[]): readonly PerkDef[] {

@@ -31,6 +31,22 @@ export interface Dungeon {
 
 // --- アクター ----------------------------------------------------------------
 
+/**
+ * 継続効果。毎ターンの終わりに 1 ずつ減り、0 で消える。
+ *
+ * 「今すぐ効く」ものは即座に適用すればよく、状態として持つ必要はない。
+ * ここに入るのは**時間をまたいで効く**ものだけ。
+ */
+export type StatusKind = 'poison' | 'burn' | 'slow' | 'rage' | 'guard';
+
+export interface StatusEffect {
+  kind: StatusKind;
+  /** 残りターン数 */
+  turns: number;
+  /** ダメージ量、または倍率。意味は kind ごとに決まる。 */
+  power: number;
+}
+
 export interface Actor {
   id: string;
   pos: Vec2;
@@ -38,6 +54,7 @@ export interface Actor {
   maxHp: number;
   attack: number;
   defense: number;
+  effects: StatusEffect[];
   /**
    * 移動に成功した累積回数。UI が `steps % 2` を歩行フレーム番号として使う。
    * アニメーション状態を UI に持たせず、ゲーム状態から導出するための出典。
@@ -47,7 +64,7 @@ export interface Actor {
 
 // --- アイテム ----------------------------------------------------------------
 
-export type ItemId = 'potion' | 'bomb';
+export type ItemId = 'potion' | 'bomb' | 'scroll' | 'key';
 
 export interface ItemStack {
   itemId: ItemId;
@@ -86,7 +103,7 @@ export interface StatMods {
   expPct?: number;
 }
 
-/** 装備の特殊効果。null 以外で未実装のものはドロップ候補から外す。 */
+/** 装備の特殊効果。命中時に確率で発動する。 */
 export type EffectId = 'burn' | 'slow';
 
 export interface Equipment {
@@ -95,17 +112,32 @@ export interface Equipment {
   slot: Slot;
   rarity: Rarity;
   mods: StatMods;
+  /** 命中時に確率で発動する効果。null なら効果なし。 */
+  effect: EffectId | null;
+  /** effect の発動率（0..1）。effect が null なら 0。 */
+  effectChance: number;
 }
 
 // --- パーク ------------------------------------------------------------------
 
 export type PerkId =
   | 'sharpened' | 'vitality' | 'deadlyAim' | 'ironhide'
-  | 'lifesteal' | 'treasureSense' | 'swiftStep';
+  | 'lifesteal' | 'treasureSense' | 'swiftStep'
+  | 'poisonAttack' | 'fireDamage' | 'shield';
 
 // --- 床のオブジェクト --------------------------------------------------------
 
-export type EntityKind = 'item' | 'gold' | 'equipment' | 'chest';
+export type EntityKind = 'item' | 'gold' | 'equipment' | 'chest' | 'event';
+
+/** ランダムイベントの識別子（docs/03 §3.7） */
+export type EventId =
+  | 'shrine'
+  | 'merchant'
+  | 'cursedChest'
+  | 'healingSpring'
+  | 'strangeAltar'
+  | 'hiddenRoom'
+  | 'treasury';
 
 /** payload を判別可能ユニオンにして、kind と中身の不整合を型で防ぐ。 */
 export type EntityPayload =
@@ -121,7 +153,8 @@ export type EntityPayload =
        */
       declinedAgainst: EquipmentId | null;
     }
-  | { type: 'chest'; opened: boolean };
+  | { type: 'chest'; locked: boolean }
+  | { type: 'event'; eventId: EventId };
 
 export interface Entity {
   id: string;
@@ -141,6 +174,15 @@ export interface Player extends Actor {
   equipment: Record<Slot, Equipment | null>;
   /** 取得順。同じパークを重ねて取れる。 */
   perks: PerkId[];
+  /**
+   * イベントや巻物による恒久的な補正の累積。
+   *
+   * recalcStats はレベル・装備・パークから毎回ゼロで組み立て直すので、
+   * それ以外の出所による変化はここに集約しないと次の再計算で消える。
+   */
+  bonuses: StatMods;
+  /** Shield パークの残りクールダウン。0 なら次の被弾を無効化する。 */
+  shieldCooldown: number;
 
   // --- 装備とパークから毎回引き直す派生値（progression.recalcStats が唯一の書き手） ---
   critChance: number;
@@ -155,6 +197,9 @@ export type EnemyKind = 'rat' | 'goblin' | 'skeleton' | 'bat' | 'slime' | 'warde
 
 export type AiKind = 'chase' | 'swift' | 'erratic';
 
+/** 敵の特殊能力（docs/03 §3.3） */
+export type AbilityId = 'revive' | 'split' | 'guard' | 'boss';
+
 export interface Enemy extends Actor {
   kind: EnemyKind;
   name: string;
@@ -163,6 +208,12 @@ export interface Enemy extends Actor {
   speed: number;
   exp: number;
   gold: number;
+  /** 回避率（0..1）。Bat のように「当たらない」ことが持ち味の敵に使う。 */
+  evasion: number;
+  ability: AbilityId | null;
+  /** 一度きりの能力を使ったかどうか */
+  revived: boolean;
+  split: boolean;
 }
 
 // --- ログ --------------------------------------------------------------------
@@ -202,7 +253,38 @@ export type LogKey =
   | 'log.bombDud'
   | 'log.perkTaken'
   | 'log.equipKept'
-  | 'log.newBest';
+  | 'log.newBest'
+  | 'log.poisoned'
+  | 'log.burned'
+  | 'log.slowed'
+  | 'log.statusTick'
+  | 'log.enemyEvaded'
+  | 'log.guarded'
+  | 'log.revived'
+  | 'log.split'
+  | 'log.enraged'
+  | 'log.bossAppears'
+  | 'log.shieldBlocked'
+  | 'log.useScroll'
+  | 'log.scrollBlast'
+  | 'log.scrollReveal'
+  | 'log.scrollTeleport'
+  | 'log.scrollRage'
+  | 'log.scrollBanish'
+  | 'log.scrollCurse'
+  | 'log.needKey'
+  | 'log.useKey'
+  | 'log.eventDeclined'
+  | 'log.shrineBlessed'
+  | 'log.merchantBought'
+  | 'log.merchantPoor'
+  | 'log.cursedReward'
+  | 'log.cursedTrap'
+  | 'log.springDrunk'
+  | 'log.altarSwapped'
+  | 'log.altarEmpty'
+  | 'log.hiddenRoom'
+  | 'log.treasuryTaken';
 
 export interface LogEntry {
   id: number;
@@ -217,6 +299,7 @@ export interface RunStats {
   /** epoch ms */
   startedAt: number;
   kills: number;
+  bossKills: number;
   goldEarned: number;
   deepestFloor: number;
   chestsOpened: number;
@@ -244,6 +327,17 @@ export type Intent =
  */
 export type PendingChoice =
   | { kind: 'levelup'; level: number; options: PerkId[] }
+  | {
+      /**
+       * ランダムイベントの選択。
+       * 効果そのものは state に持たず eventId から引く — 状態は素のデータのままにする。
+       */
+      kind: 'event';
+      eventId: EventId;
+      entityId: string;
+      /** 提示する選択肢の数。中身は data/events.ts が持つ。 */
+      optionCount: number;
+    }
   | {
       /**
        * 拾った装備が今の装備の上位互換でも下位互換でもないとき（トレードオフ）の選択。

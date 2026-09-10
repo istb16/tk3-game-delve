@@ -326,6 +326,46 @@ kbd {
   font-weight: 700;
 }
 
+/* --- 継続効果 -------------------------------------------------------------- */
+
+.status__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.status--poison { color: #6ac46a; }
+.status--burn { color: var(--accent); }
+.status--slow { color: var(--info); }
+.status--rage { color: var(--danger); }
+.status--guard { color: var(--text-dim); }
+
+.status__turns {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+/* 盤面の敵に付く印。色だけに頼らず、輪郭の変化でも分かるようにする。 */
+.actor--poison use { filter: drop-shadow(0 0 0.06px #6ac46a) drop-shadow(0 0 0.06px #6ac46a); }
+.actor--burn use { filter: drop-shadow(0 0 0.06px var(--accent)) drop-shadow(0 0 0.06px var(--accent)); }
+.actor--slow { opacity: 0.72; }
+.actor--guard use { filter: drop-shadow(0 0 0.08px #c0d0e0); }
+.actor--rage use { filter: drop-shadow(0 0 0.08px var(--danger)) drop-shadow(0 0 0.08px var(--danger)); }
+
 /* --- インベントリ ---------------------------------------------------------- */
 
 .items__list {
