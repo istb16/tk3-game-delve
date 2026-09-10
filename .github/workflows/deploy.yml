@@ -1,5 +1,9 @@
-# main に push されたら dist/delve.html を作り直し、
+# main に入ったら dist/delve.html を作り直し、
 # istb16/tk3-biz-html の public/sproj/delve.html を上書きする。
+#
+# main へは PR 経由でしか入らない（PR の検証は ci.yml）。
+# ここでもテストとビルドをやり直すのは、公開するのは「main の内容」であって
+# PR の時点の内容ではないため — マージで初めて壊れる組み合わせを拾う。
 #
 # 向こうのリポジトリは main への push で Firebase Hosting へデプロイするので、
 # ここから push した時点で公開まで繋がる。

@@ -1,0 +1,39 @@
+# PR の検証。main へは PR 経由でしか入らないので、ここが最後の砦になる。
+# main に入ったあとは deploy.yml が同じ検証をやり直してから公開する。
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# 同じ PR に続けて push したら、古い実行は捨てる。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
+
+      # 出荷物は 1 ファイルだけ。単一ファイル化が壊れていないかを見る。
+      - name: 単一ファイルであることを確認
+        run: |
+          test -f dist/delve.html
+          test "$(ls dist | wc -l)" -eq 1
+          echo "size: $(wc -c < dist/delve.html) bytes"
