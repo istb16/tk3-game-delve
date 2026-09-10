@@ -38,6 +38,7 @@ export type MessageKey =
   | 'log.useBomb'
   | 'log.bombDud'
   | 'log.perkTaken'
+  | 'log.equipKept'
   | 'log.newBest'
   // UI
   | 'ui.tagline'
@@ -48,6 +49,11 @@ export type MessageKey =
   | 'ui.empty'
   | 'ui.levelUp'
   | 'ui.choosePerk'
+  | 'ui.swapGear'
+  | 'ui.chooseGear'
+  | 'ui.takeNew'
+  | 'ui.keepCurrent'
+  | 'ui.current'
   | 'ui.score'
   | 'ui.best'
   | 'ui.newBest'
@@ -114,6 +120,7 @@ const EN: Record<MessageKey, string> = {
   'log.useBomb': 'The bomb blasts {hits} enemies and {broken} walls.',
   'log.bombDud': 'Nothing here to blow up.',
   'log.perkTaken': 'You gain {perk}.',
+  'log.equipKept': 'You leave {name} on the floor.',
   'log.newBest': 'NEW BEST! FLOOR {floor}',
 
   'ui.equipment': 'EQUIPMENT',
@@ -121,6 +128,11 @@ const EN: Record<MessageKey, string> = {
   'ui.empty': 'empty',
   'ui.levelUp': 'LEVEL UP',
   'ui.choosePerk': 'You are now LV {level}. Choose one.',
+  'ui.swapGear': 'SWAP GEAR?',
+  'ui.chooseGear': 'Neither is strictly better. Pick the one your build wants.',
+  'ui.takeNew': 'Take {name}',
+  'ui.keepCurrent': 'Keep {name}',
+  'ui.current': 'equipped',
   'ui.score': 'SCORE',
   'ui.best': 'BEST',
   'ui.newBest': 'NEW BEST',
@@ -190,6 +202,7 @@ const JA: Record<MessageKey, string> = {
   'log.useBomb': '爆風が敵 {hits} 体と壁 {broken} 枚を巻き込んだ。',
   'log.bombDud': 'ここで爆破しても何も起きない。',
   'log.perkTaken': '{perk} を習得した。',
+  'log.equipKept': '{name} は床に置いていった。',
   'log.newBest': '自己ベスト更新! FLOOR {floor}',
 
   'ui.equipment': 'EQUIPMENT',
@@ -197,6 +210,11 @@ const JA: Record<MessageKey, string> = {
   'ui.empty': 'なし',
   'ui.levelUp': 'LEVEL UP',
   'ui.choosePerk': 'LV {level} になった。1つ選べ。',
+  'ui.swapGear': '持ち替えるか?',
+  'ui.chooseGear': 'どちらが上位ということはない。ビルドに合う方を選べ。',
+  'ui.takeNew': '{name} に持ち替える',
+  'ui.keepCurrent': '{name} のままにする',
+  'ui.current': '装備中',
   'ui.score': 'SCORE',
   'ui.best': 'BEST',
   'ui.newBest': '自己ベスト',

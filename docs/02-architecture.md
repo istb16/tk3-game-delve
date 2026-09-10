@@ -136,11 +136,15 @@ view.ts   render(state)   ← 状態から画面を再構築
 代わりに **状態を書き換えてよいのは `game/` だけ** という規律で守る。
 
 ```ts
-type Phase = 'playing' | 'levelup' | 'event' | 'dead';
+type Phase = 'playing' | 'choosing' | 'dead';
 ```
 
 `phase` がモーダルの表示制御とゲーム入力の受付可否を兼ねる。
-`levelup` / `event` 中は移動入力を無視し、選択が終わると `playing` に戻る。
+`choosing` 中は移動入力を無視し、選択が終わると `playing` に戻る。
+
+`choosing` はレベルアップのパーク選択と装備の持ち替えの両方を受け持つ。
+どちらも「選択肢を出して1つ選ばせる」という同じ形なので、
+`pendingChoices` の列とモーダルを共通化している（イベントは Phase 3 でここに足す）。
 
 ## 2.6 描画方針
 

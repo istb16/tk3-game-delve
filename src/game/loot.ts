@@ -2,6 +2,7 @@ import type {
   Dungeon,
   Entity,
   EntityPayload,
+  Equipment,
   GameState,
   ItemId,
   ItemStack,
@@ -23,7 +24,7 @@ import {
 } from '../core/constants';
 import { addLog, addLogOnce } from '../core/log';
 import { ITEMS } from '../data/items';
-import { equipmentAt, equipmentScore, toEquipment } from '../data/equipment';
+import { compareEquipment, equipmentAt, toEquipment } from '../data/equipment';
 import { UNREACHABLE, bfsDistances, chebyshev, tileAt, tileIndex } from './dungeon';
 import { equip } from './progression';
 import { gainGold } from './player';
@@ -63,7 +64,11 @@ export function spawnEntities(
     payloads.push({ type: 'chest', opened: false });
   }
   if (rng.chance(equipmentDropChance(floor))) {
-    payloads.push({ type: 'equipment', equipment: toEquipment(rng.pick(equipmentAt(floor))) });
+    payloads.push({
+      type: 'equipment',
+      equipment: toEquipment(rng.pick(equipmentAt(floor))),
+      declinedAgainst: null,
+    });
   }
 
   const entities: Entity[] = [];
@@ -150,10 +155,12 @@ function collectItem(state: GameState, entity: Entity, itemId: ItemId, count: nu
 }
 
 /**
- * 装備は「今のものより強ければ」自動で入れ替える。
+ * 装備を踏んだときの処理。
  *
- * 常に入れ替えると、通り道に落ちていた弱い装備を踏んだだけで弱体化する。
- * 拾わない選択を強いるのは判断ではなく、ただの理不尽。
+ * - 空きスロット / 明確な上位互換 → 自動で装備する。判断の余地がないものを尋ねない
+ * - 明確な下位互換 → 何もしない。通り道の弱い装備で事故的に弱体化させない
+ * - トレードオフ → プレイヤーに選ばせる。ここが装備をビルドの選択肢にしている部分
+ *
  * 入れ替えた場合、外した方はその場に落として拾い直せるようにする。
  */
 function collectEquipment(
@@ -164,21 +171,47 @@ function collectEquipment(
   const player = state.player;
   const current = player.equipment[payload.equipment.slot];
 
-  if (equipmentScore(payload.equipment) <= equipmentScore(current)) {
-    addLogOnce(state.log, 'log.equipWorse', { name: payload.equipment.name }, 'info');
-    return false;
-  }
+  switch (compareEquipment(payload.equipment, current)) {
+    case 'better':
+      return swapEquipment(state, entity, payload.equipment);
 
-  const removed = equip(player, payload.equipment);
-  addLog(state.log, 'log.equip', { name: payload.equipment.name }, 'good');
+    case 'worse':
+      addLogOnce(state.log, 'log.equipWorse', { name: payload.equipment.name }, 'info');
+      return false;
 
-  if (removed) {
-    // 外した装備は同じマスに置き直す。拾い直せる = 選び直せる。
-    entity.payload = { type: 'equipment', equipment: removed };
-    entity.kind = 'equipment';
-    return false;
+    case 'sidegrade': {
+      // 一度断った組み合わせは尋ね直さない。ただし装備が変われば答えも変わるので、
+      // 「何に対して断ったか」を覚えておき、別の装備になっていればもう一度尋ねる。
+      if (current && payload.declinedAgainst === current.id) {
+        addLogOnce(state.log, 'log.equipKept', { name: payload.equipment.name }, 'info');
+        return false;
+      }
+      state.pendingChoices.push({
+        kind: 'equipment',
+        entityId: entity.id,
+        candidate: payload.equipment,
+        // sidegrade は current が null では起きない（null は必ず 'better'）
+        current: current as Equipment,
+      });
+      return false;
+    }
   }
-  return true;
+}
+
+/**
+ * 装備を着け替え、外した物を同じマスに残す。
+ * @returns 床から取り除いてよいか（外した物がなければ取り除く）
+ */
+export function swapEquipment(state: GameState, entity: Entity, next: Equipment): boolean {
+  const removed = equip(state.player, next);
+  addLog(state.log, 'log.equip', { name: next.name }, 'good');
+
+  if (!removed) return true;
+
+  // 外した装備は同じマスに置き直す。拾い直せる = 選び直せる。
+  entity.payload = { type: 'equipment', equipment: removed, declinedAgainst: null };
+  entity.kind = 'equipment';
+  return false;
 }
 
 function rollChestReward(state: GameState): Omit<Entity, 'pos'> {
@@ -192,7 +225,11 @@ function rollChestReward(state: GameState): Omit<Entity, 'pos'> {
   } else if (roll < 0.8) {
     payload = { type: 'item', itemId: rng.pick(ITEMS).id, count: 1 };
   } else {
-    payload = { type: 'equipment', equipment: toEquipment(rng.pick(equipmentAt(floor))) };
+    payload = {
+      type: 'equipment',
+      equipment: toEquipment(rng.pick(equipmentAt(floor))),
+      declinedAgainst: null,
+    };
   }
   return { id: `entity-${nextEntityId++}`, kind: payload.type, payload };
 }

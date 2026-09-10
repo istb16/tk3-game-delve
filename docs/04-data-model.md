@@ -241,8 +241,9 @@ UI を共通化するため 1 つの型にまとめる。
 
 ```ts
 type PendingChoice =
-  | { kind: 'levelup'; options: PerkId[] }
-  | { kind: 'event'; eventId: EventId; options: EventOption[] };
+  | { kind: 'levelup'; level: number; options: PerkId[] }
+  | { kind: 'equipment'; entityId: string; candidate: Equipment; current: Equipment };
+  // イベント（Phase 3）もここに足す
 
 interface EventOption {
   label: string;        // 'YES' / 'NO' など
@@ -253,7 +254,7 @@ interface EventOption {
 
 **列で持つのが要点。** 1ターンで2レベル上がることがあるので、
 選択を1つしか保持しない設計だと取りこぼす。
-`pendingChoices` が空でなく生存中なら `phase` は `'levelup'` になり、
+`pendingChoices` が空でなく生存中なら `phase` は `'choosing'` になり、
 移動・待機・アイテム使用のいずれも受け付けない。
 
 選択待ちを開くのは**敵の行動まで終えてから**。レベルアップした瞬間に止めると、

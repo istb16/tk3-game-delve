@@ -71,24 +71,45 @@ export function toEquipment(def: EquipmentDef): Equipment {
 }
 
 /**
- * 装備の比較に使う概算スコア。
+ * 装備の比較。
  *
- * 「拾った方が強ければ自動で入れ替える」ための順序付けであって、
- * 厳密な強さではない。攻撃力1相当を基準に各補正を換算している。
+ * 単一の総合スコアで順序を付けてはいけない。スロットごとに1位が決まってしまい、
+ * それを拾った時点で残りの装備が永久に使われなくなる（実測: Ring of Vigor を拾うと
+ * 他の3種の指輪が二度と装備されない）。装備がビルドの選択肢でなくなる。
+ *
+ * 代わりに**支配関係**だけを見る。全項目で劣らず、どこかで勝っていれば 'better'。
+ * その逆なら 'worse'。どちらでもない組み合わせ（攻撃力は低いが吸収が付くなど）は
+ * 'sidegrade' として、プレイヤーに選ばせる。
  */
-export function equipmentScore(equipment: Equipment | null): number {
-  if (!equipment) return -1;
-  const m = equipment.mods;
-  return (
-    (m.attack ?? 0) * 1 +
-    (m.attackPct ?? 0) * 20 +
-    (m.defense ?? 0) * 1.5 +
-    (m.maxHp ?? 0) * 0.2 +
-    (m.crit ?? 0) * 20 +
-    (m.evasion ?? 0) * 25 +
-    (m.lifesteal ?? 0) * 40 +
-    (m.thorns ?? 0) * 0.8 +
-    (m.goldPct ?? 0) * 3 +
-    (m.expPct ?? 0) * 8
-  );
+export type Comparison = 'better' | 'worse' | 'sidegrade';
+
+const MOD_KEYS = [
+  'attack',
+  'attackPct',
+  'defense',
+  'maxHp',
+  'crit',
+  'evasion',
+  'lifesteal',
+  'thorns',
+  'goldPct',
+  'expPct',
+] as const satisfies readonly (keyof StatMods)[];
+
+export function compareEquipment(candidate: Equipment, current: Equipment | null): Comparison {
+  if (!current) return 'better';
+
+  let anyBetter = false;
+  let anyWorse = false;
+  for (const key of MOD_KEYS) {
+    const a = candidate.mods[key] ?? 0;
+    const b = current.mods[key] ?? 0;
+    if (a > b) anyBetter = true;
+    else if (a < b) anyWorse = true;
+  }
+
+  if (anyBetter && !anyWorse) return 'better';
+  if (anyWorse && !anyBetter) return 'worse';
+  // 完全に同じ場合も 'worse' 扱い。持ち替える意味がないので尋ねない。
+  return anyBetter ? 'sidegrade' : 'worse';
 }

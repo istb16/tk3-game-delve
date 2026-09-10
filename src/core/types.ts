@@ -12,7 +12,7 @@ export type Dir = 'up' | 'down' | 'left' | 'right';
 export type TileKind = 'wall' | 'floor' | 'stairs';
 
 /** phase は「モーダル表示」と「移動入力を受け付けるか」を兼ねる。 */
-export type Phase = 'playing' | 'levelup' | 'dead';
+export type Phase = 'playing' | 'choosing' | 'dead';
 
 // --- ダンジョン --------------------------------------------------------------
 
@@ -111,7 +111,16 @@ export type EntityKind = 'item' | 'gold' | 'equipment' | 'chest';
 export type EntityPayload =
   | { type: 'item'; itemId: ItemId; count: number }
   | { type: 'gold'; amount: number }
-  | { type: 'equipment'; equipment: Equipment }
+  | {
+      type: 'equipment';
+      equipment: Equipment;
+      /**
+       * この装備を「今のままでいい」と断ったときの、当時の装備の id。
+       * 同じ比較を何度も聞き直さないための記録。装備が変わればもう一度尋ねる
+       * （ビルドが変われば答えも変わるため）。
+       */
+      declinedAgainst: EquipmentId | null;
+    }
   | { type: 'chest'; opened: boolean };
 
 export interface Entity {
@@ -192,6 +201,7 @@ export type LogKey =
   | 'log.useBomb'
   | 'log.bombDud'
   | 'log.perkTaken'
+  | 'log.equipKept'
   | 'log.newBest';
 
 export interface LogEntry {
@@ -232,7 +242,18 @@ export type Intent =
  * レベルアップとランダムイベントは「選択肢を出して1つ選ばせる」という同じ形なので、
  * 1つの型にまとめて UI を共通化する。イベントは Phase 3。
  */
-export type PendingChoice = { kind: 'levelup'; level: number; options: PerkId[] };
+export type PendingChoice =
+  | { kind: 'levelup'; level: number; options: PerkId[] }
+  | {
+      /**
+       * 拾った装備が今の装備の上位互換でも下位互換でもないとき（トレードオフ）の選択。
+       * 単一の順序で自動的に決めてしまうと、順位1位の装備以外が永久に使われなくなる。
+       */
+      kind: 'equipment';
+      entityId: string;
+      candidate: Equipment;
+      current: Equipment;
+    };
 
 // --- ゲーム状態 --------------------------------------------------------------
 
@@ -250,7 +271,7 @@ export interface GameState {
   entities: Entity[];
   /**
    * 選択待ちの列。1ターンで複数回レベルアップすることがあるため配列で持つ。
-   * 空でなく生存中なら phase は 'levelup' になり、先頭を表示する。
+   * 空でなく生存中なら phase は 'choosing' になり、先頭を表示する。
    */
   pendingChoices: PendingChoice[];
   log: LogEntry[];

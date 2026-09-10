@@ -634,6 +634,16 @@ kbd {
   font-size: 11px;
 }
 
+/* 「装備中」のような補足。数値と混ざらないよう地の色を落とす */
+.choice__tag {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
 .result__badge {
   margin-left: 6px;
   padding: 1px 5px;

@@ -1,10 +1,11 @@
-import type { Dir, GameState, Intent, Vec2 } from '../core/types';
+import type { Dir, GameState, Intent, PendingChoice, Vec2 } from '../core/types';
 import { SWIFT_STEP_CHANCE } from '../core/constants';
 import { isWalkable, tileAt, updateVisibility } from './dungeon';
 import { actEnemy, enemyAt } from './enemy';
 import { playerAttack } from './combat';
-import { pickupAt, useItem } from './loot';
-import { hasPerk, takePerk } from './progression';
+import { pickupAt, swapEquipment, useItem } from './loot';
+import { equip, hasPerk, takePerk } from './progression';
+import { addLog } from '../core/log';
 import { descend } from './state';
 
 const DIRECTIONS: Record<Dir, Vec2> = {
@@ -23,7 +24,7 @@ const DIRECTIONS: Record<Dir, Vec2> = {
 export function takeTurn(state: GameState, intent: Intent): void {
   // 選択待ちの間は選ぶことしかできない。移動でモーダルを素通りできてしまうと、
   // パークを取り損ねたまま進めてしまう。
-  if (state.phase === 'levelup') {
+  if (state.phase === 'choosing') {
     if (intent.type === 'choose') resolveChoice(state, intent.index);
     return;
   }
@@ -58,7 +59,7 @@ export function takeTurn(state: GameState, intent: Intent): void {
 function openNextChoice(state: GameState): void {
   if (state.phase !== 'playing') return;
   if (state.pendingChoices.length === 0) return;
-  state.phase = 'levelup';
+  state.phase = 'choosing';
 }
 
 function resolveChoice(state: GameState, index: number): void {
@@ -67,12 +68,46 @@ function resolveChoice(state: GameState, index: number): void {
     state.phase = 'playing';
     return;
   }
-  const perk = choice.options[index];
-  if (!perk) return; // 範囲外の入力は無視する。閉じずにもう一度選ばせる。
 
-  takePerk(state, perk);
+  // 範囲外の入力は無視する。閉じずにもう一度選ばせる。
+  if (!applyChoice(state, choice, index)) return;
+
   state.pendingChoices.shift();
-  state.phase = state.pendingChoices.length > 0 ? 'levelup' : 'playing';
+  state.phase = state.pendingChoices.length > 0 ? 'choosing' : 'playing';
+}
+
+/** @returns 選択が成立したか（false なら入力が無効で、選択待ちのまま） */
+function applyChoice(state: GameState, choice: PendingChoice, index: number): boolean {
+  if (choice.kind === 'levelup') {
+    const perk = choice.options[index];
+    if (!perk) return false;
+    takePerk(state, perk);
+    return true;
+  }
+
+  // 装備の持ち替え: 0 = 拾った方に持ち替える / 1 = 今のままにする
+  const entity = state.entities.find((e) => e.id === choice.entityId);
+  if (index === 0) {
+    if (entity) {
+      if (swapEquipment(state, entity, choice.candidate)) {
+        state.entities = state.entities.filter((e) => e !== entity);
+      }
+    } else {
+      // 床から消えている状況は想定していないが、選択待ちで詰ませない
+      equip(state.player, choice.candidate);
+      addLog(state.log, 'log.equip', { name: choice.candidate.name }, 'good');
+    }
+    return true;
+  }
+  if (index === 1) {
+    // 同じ比較を繰り返し尋ねないよう、「何に対して断ったか」を記録する
+    if (entity && entity.payload.type === 'equipment') {
+      entity.payload.declinedAgainst = choice.current.id;
+    }
+    addLog(state.log, 'log.equipKept', { name: choice.candidate.name }, 'info');
+    return true;
+  }
+  return false;
 }
 
 /** @returns ターンを消費したか */

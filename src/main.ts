@@ -5,11 +5,11 @@ import { createGame } from './game/state';
 import { takeTurn } from './game/turn';
 import { tileIndex } from './game/dungeon';
 import { render } from './ui/view';
-import { intentFromDpad, intentFromKey } from './ui/input';
+import { intentFromDpad, intentFromKey, isGameKey } from './ui/input';
 import { installFavicon } from './ui/favicon';
 import type { DpadMode, Lang, Settings } from './storage/settings';
 import { loadSettings, saveSettings } from './storage/settings';
-import type { SaveData } from './storage/save';
+import type { RunOutcome, SaveData } from './storage/save';
 import { loadSave, recordRun } from './storage/save';
 import { addLog } from './core/log';
 
@@ -24,11 +24,13 @@ let settings: Settings = loadSettings();
 applySettings();
 
 let save: SaveData = loadSave();
+/** 直前の Run の結果。リザルト画面が「記録を更新したか」を判定するのに使う。 */
+let lastRun: RunOutcome | null = null;
 let state: GameState = createGame();
 draw();
 
 function draw(): void {
-  render(root, state, { settings, save });
+  render(root, state, { settings, save, lastRun });
 }
 
 /**
@@ -77,6 +79,7 @@ function dispatch(intent: Intent): void {
     // 死亡中のみ再開を受け付ける。プレイ中の誤爆で Run が消えるのを防ぐ。
     if (state.phase !== 'dead') return;
     state = createGame();
+    lastRun = null;
     repeatBlocked = false;
   } else {
     const wasAlive = state.phase !== 'dead';
@@ -96,6 +99,7 @@ function dispatch(intent: Intent): void {
     if (wasAlive && state.phase === 'dead') {
       const outcome = recordRun(save, state);
       save = outcome.save;
+      lastRun = outcome;
       if (outcome.newBestDepth) {
         addLog(state.log, 'log.newBest', { floor: state.stats.deepestFloor }, 'system');
       }
@@ -106,7 +110,12 @@ function dispatch(intent: Intent): void {
 
 window.addEventListener('keydown', (event) => {
   const intent = intentFromKey(event, state.phase);
-  if (!intent) return;
+  if (!intent) {
+    // モーダル表示中は意味を持たないゲームのキーも飲み込む。
+    // 素通りさせると、選択中に矢印やスペースで背後のページがスクロールしてしまう。
+    if (state.phase !== 'playing' && isGameKey(event)) event.preventDefault();
+    return;
+  }
   event.preventDefault();
 
   // リピートを受け付けるのは移動と待機だけ。

@@ -18,13 +18,15 @@ export function playerAttack(state: GameState, target: Enemy): void {
   const critical = state.rng.chance(player.critChance);
   if (critical) damage = Math.floor(damage * CRIT_MULTIPLIER);
 
-  damageEnemy(state, target, damage);
+  // 命中を先に記録する。damageEnemy は撃破とレベルアップまで処理してログを積むので、
+  // 後に回すと「倒した」→「レベルアップ」→「殴った」という因果の逆転した並びになる。
   addLog(
     state.log,
     critical ? 'log.critical' : 'log.playerHit',
     { name: target.name, damage },
     critical ? 'good' : 'info',
   );
+  damageEnemy(state, target, damage);
 
   // 吸収は与えたダメージに比例する。倒しきった分も含めて数える
   // （倒した瞬間だけ吸えないのは直感に反する）。
@@ -63,9 +65,10 @@ export function enemyAttack(state: GameState, attacker: Enemy): void {
   addLog(state.log, 'log.enemyHit', { name: attacker.name, damage }, 'bad');
 
   // 反射は被弾が成立したときだけ。回避したのに棘が刺さるのはおかしい。
+  // ここも命中ログが先（damageEnemy が撃破ログを積むため）。
   if (player.thorns > 0 && attacker.hp > 0) {
-    damageEnemy(state, attacker, player.thorns);
     addLog(state.log, 'log.thorns', { name: attacker.name, damage: player.thorns }, 'info');
+    damageEnemy(state, attacker, player.thorns);
   }
 
   if (player.hp <= 0) {

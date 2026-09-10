@@ -57,8 +57,10 @@ export function runBot(seed: number, options: BotOptions = {}): BotResult {
   while (state.phase !== 'dead' && turns < maxTurns && state.floor < maxFloor) {
     turns += 1;
 
-    if (state.phase === 'levelup') {
-      // 吟味せず最初の選択肢を取る
+    if (state.phase === 'choosing') {
+      // 吟味せず最初の選択肢を取る。
+      // 装備の持ち替えでも index 0（拾った方に持ち替える）を選ぶ —
+      // 「新しくて光っている物に飛びつく」のが下手なプレイヤーの振る舞い。
       takeTurn(state, { type: 'choose', index: 0 });
       continue;
     }

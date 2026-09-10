@@ -21,6 +21,19 @@ const KEY_TO_DIR: Record<string, Dir> = {
 };
 
 /**
+ * ゲームの操作に使うキーかどうか。
+ *
+ * モーダル表示中に矢印やスペースを素通りさせると、背後のページがスクロールしてしまう。
+ * 意味を持たない場面でも「ゲームのキー」であることは分かる必要がある。
+ */
+export function isGameKey(event: KeyboardEvent): boolean {
+  if (event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (KEY_TO_DIR[event.key]) return true;
+  if (event.key >= '0' && event.key <= '9') return true;
+  return event.key === '.' || event.key === ' ' || event.key === 'Enter';
+}
+
+/**
  * 数字キーの意味は phase で変わる。
  * 選択待ちの間は選択肢、それ以外はインベントリのスロット。
  * game/ 側に phase 分岐を持たせず、入力の解釈をここに閉じ込める。
@@ -28,7 +41,7 @@ const KEY_TO_DIR: Record<string, Dir> = {
 export function intentFromKey(event: KeyboardEvent, phase: Phase): Intent | null {
   if (event.ctrlKey || event.metaKey || event.altKey) return null;
 
-  if (phase === 'levelup') {
+  if (phase === 'choosing') {
     if (event.key >= '1' && event.key <= '9') {
       return { type: 'choose', index: Number(event.key) - 1 };
     }

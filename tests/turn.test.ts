@@ -85,7 +85,7 @@ describe('ターン進行', () => {
     for (let seed = 1; seed <= 30; seed++) {
       const state = createGame(seed * 13);
       for (let i = 0; i < 60 && state.phase !== 'dead'; i++) {
-        if (state.phase === 'levelup') {
+        if (state.phase === 'choosing') {
           takeTurn(state, { type: 'choose', index: 0 });
           continue;
         }
@@ -97,13 +97,13 @@ describe('ターン進行', () => {
     }
   });
 
-  it('レベルアップの選択待ち中は移動できず、選ぶと解ける', () => {
+  it('選択待ち中は移動できず、選ぶと解ける', () => {
     const state = createGame(21);
     gainExp(state, 8); // 1 レベル分
     expect(state.pendingChoices.length).toBe(1);
 
     takeTurn(state, { type: 'wait' });
-    expect(state.phase).toBe('levelup');
+    expect(state.phase).toBe('choosing');
 
     const posBefore = { ...state.player.pos };
     takeTurn(state, { type: 'move', dir: 'right' });
@@ -111,7 +111,7 @@ describe('ターン進行', () => {
 
     // 範囲外の選択は無視され、モーダルは閉じない
     takeTurn(state, { type: 'choose', index: 99 });
-    expect(state.phase).toBe('levelup');
+    expect(state.phase).toBe('choosing');
 
     takeTurn(state, { type: 'choose', index: 0 });
     expect(state.phase).toBe('playing');
@@ -126,7 +126,7 @@ describe('ターン進行', () => {
 
     takeTurn(state, { type: 'wait' });
     for (let i = 0; i < queued; i++) {
-      expect(state.phase).toBe('levelup');
+      expect(state.phase).toBe('choosing');
       takeTurn(state, { type: 'choose', index: 0 });
     }
     expect(state.phase).toBe('playing');
@@ -165,5 +165,22 @@ describe('ターン進行', () => {
     }
 
     expect(tested, '検証できたケースが少なすぎる').toBeGreaterThan(30);
+  });
+});
+
+describe('ログの順序', () => {
+  it('とどめの一撃は撃破ログより先に出る', () => {
+    const state = createGame(101);
+    const target = placeEnemy(state, 1, 0, 1);
+    const before = state.log.length;
+
+    takeTurn(state, { type: 'move', dir: 'right' });
+
+    const keys = state.log.slice(before).map((e) => e.key);
+    const hit = keys.findIndex((k) => k === 'log.playerHit' || k === 'log.critical');
+    const dies = keys.indexOf('log.enemyDies');
+    expect(hit, '命中ログがない').toBeGreaterThanOrEqual(0);
+    expect(dies, '撃破ログがない').toBeGreaterThanOrEqual(0);
+    expect(hit, '撃破が命中より先に記録されている').toBeLessThan(dies);
   });
 });
