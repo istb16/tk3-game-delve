@@ -3,7 +3,7 @@ import type { DpadMode, Lang, Settings } from '../storage/settings';
 import { t } from './i18n';
 
 /**
- * 上部ステータスと設定。
+ * 上部ステータス。
  *
  * 数値の見出し（HP / EXP / FLOOR / LV / GOLD）は両言語とも英語のまま。
  * 短く自明で、日本語にすると却って読み取りが遅くなるため（→ i18n.ts の方針）。
@@ -27,12 +27,17 @@ export function renderHud(state: GameState, settings: Settings): string {
         ${bar('EXP', `${p.exp}/${p.nextExp}`, expRatio, 'exp')}
         ${stat('GOLD', String(p.gold))}
       </div>
-      ${renderSettings(settings)}
     </header>
   `;
 }
 
-function renderSettings(settings: Settings): string {
+/**
+ * 言語・方向キー・効果音の設定。
+ *
+ * 画面の**最下部**、方向キーより下に置く。プレイ中に触るものではないので、
+ * 盤面や HUD の近くに置くと視線と指の通り道を占領してしまう。
+ */
+export function renderSettings(settings: Settings): string {
   const lang = settings.lang;
   return `
     <div class="settings" role="group" aria-label="${t(lang, 'ui.settings')}">

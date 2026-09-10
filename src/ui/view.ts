@@ -1,5 +1,6 @@
 import type {
   AchievementId,
+  ItemId,
   EventId,
   GameState,
   PendingChoice,
@@ -12,14 +13,22 @@ import type { Settings } from '../storage/settings';
 import type { RunOutcome, SaveData } from '../storage/save';
 import { computeScore } from '../storage/save';
 import { renderBoard } from './board';
-import { renderHud } from './hud';
+import { renderHud, renderSettings } from './hud';
 import type { MessageKey } from './i18n';
 import { t } from './i18n';
 import { itemSpriteId } from './sprites';
+import { BOMB_DAMAGE, ELIXIR_HEAL, POTION_HEAL } from '../core/constants';
 
 export interface ViewContext {
   settings: Settings;
   save: SaveData;
+  /**
+   * タッチで選択中のスロット番号。
+   *
+   * ホバーできない環境では 1 回目のタップで説明を出し、2 回目で使う。
+   * その「選択中」を表す値で、保存はしない（次の操作で消える一時的な状態）。
+   */
+  selectedSlot: number | null;
   /**
    * 直前の Run の結果。死亡時に recordRun が返したものをそのまま渡す。
    *
@@ -41,7 +50,7 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
         <div class="side__group side__group--gear">
           ${renderStatus(state, settings)}
           ${renderEquipment(state, settings)}
-          ${renderItems(state, settings)}
+          ${renderItems(state, settings, ctx.selectedSlot)}
           ${renderPerks(state, settings)}
         </div>
         <div class="side__group side__group--log">
@@ -54,6 +63,7 @@ export function render(root: HTMLElement, state: GameState, ctx: ViewContext): v
       <span>${t(settings.lang, 'ui.motto')}</span>
     </footer>
     ${renderDpad(settings)}
+    ${renderSettings(settings)}
     ${state.phase === 'choosing' ? renderChoiceModal(state, settings) : ''}
     ${state.phase === 'dead' ? renderDeathModal(state, ctx) : ''}
   `;
@@ -145,13 +155,21 @@ function renderEquipment(state: GameState, settings: Settings): string {
     const item = state.player.equipment[slot];
     const name = item ? item.name : t(settings.lang, 'ui.empty');
     const modifier = item ? ` gear__name--${item.rarity}` : ' gear__name--empty';
+    // 装備にも同じ仕組みで補正を出す。名前だけでは何が強いのか分からない。
+    const tip = item
+      ? `<span class="tip" role="tooltip">` +
+        `<span class="tip__name">${escapeHtml(item.name)}</span>` +
+        `<span class="tip__desc">${formatMods(item.mods)}</span>` +
+        `</span>`
+      : '';
+
     return (
-      `<li class="gear">` +
+      `<li class="gear${item ? ' gear--filled' : ''}">` +
       `<svg class="gear__icon" viewBox="0 0 1 1" shape-rendering="crispEdges" aria-hidden="true">` +
       `<use href="#sp-${slot}-0" width="1" height="1"/></svg>` +
       `<span class="gear__slot">${t(settings.lang, `slot.${slot}` as const)}</span>` +
       `<span class="gear__name${modifier}">${escapeHtml(name)}</span>` +
-      `</li>`
+      `${tip}</li>`
     );
   }).join('');
   return `<section class="panel"><h2 class="panel__title">${t(settings.lang, 'ui.equipment')}</h2><ul class="gear__list">${rows}</ul></section>`;
@@ -161,25 +179,59 @@ function renderEquipment(state: GameState, settings: Settings): string {
  * インベントリ。数字キーとクリックの両方で使える。
  * 空きスロットも描くことで「何個持てるか」を常に見せる。
  */
-function renderItems(state: GameState, settings: Settings): string {
+/**
+ * アイテムの効果を1行で説明する。
+ *
+ * 数値は定数から組み立てる。文言に直接書くと、バランス調整のたびに
+ * 説明と実際の効果がずれていく。
+ */
+function itemTip(settings: Settings, itemId: ItemId): string {
+  const lang = settings.lang;
+  switch (itemId) {
+    case 'potion':
+      return t(lang, 'itemDesc.heal', { percent: Math.round(POTION_HEAL * 100) });
+    case 'elixir':
+      return t(lang, 'itemDesc.heal', { percent: Math.round(ELIXIR_HEAL * 100) });
+    case 'bomb':
+      return t(lang, 'itemDesc.bomb', { damage: BOMB_DAMAGE });
+    case 'scroll':
+      return t(lang, 'itemDesc.scroll');
+    case 'key':
+      return t(lang, 'itemDesc.key');
+  }
+}
+
+function renderItems(state: GameState, settings: Settings, selectedSlot: number | null): string {
   const slots = state.player.inventory
     .map((stack, index) => {
       const key = index + 1;
       if (!stack) {
         return `<li class="slot slot--empty"><span class="slot__key">${key}</span></li>`;
       }
+      const name = t(settings.lang, `item.${stack.itemId}` as const);
       const label = t(settings.lang, 'aria.useItem', {
-        item: t(settings.lang, `item.${stack.itemId}` as const),
+        item: name,
         slot: key,
         count: stack.count,
       });
+      const selected = selectedSlot === index;
+      // 説明はマウスならホバー、タッチなら1回目のタップで出す。
+      // どちらも CSS で解決するので、UI 側に表示状態を持たない。
+      const tip =
+        `<span class="tip" role="tooltip">` +
+        `<span class="tip__name">${escapeHtml(name)}</span>` +
+        `<span class="tip__desc">${escapeHtml(itemTip(settings, stack.itemId))}</span>` +
+        (selected ? `<span class="tip__hint">${escapeHtml(t(settings.lang, 'ui.tapAgain'))}</span>` : '') +
+        `</span>`;
+
       return (
-        `<li class="slot"><button class="slot__btn" data-use-slot="${index}" aria-label="${escapeHtml(label)}">` +
+        `<li class="slot${selected ? ' slot--selected' : ''}">` +
+        `<button class="slot__btn" data-use-slot="${index}" aria-label="${escapeHtml(label)}">` +
         `<span class="slot__key">${key}</span>` +
         `<svg class="slot__icon" viewBox="0 0 1 1" shape-rendering="crispEdges" aria-hidden="true">` +
         `<use href="#${itemSpriteId(stack.itemId)}" width="1" height="1"/></svg>` +
         `<span class="slot__count">${stack.count}</span>` +
-        `</button></li>`
+        `</button>${tip}</li>`
       );
     })
     .join('');

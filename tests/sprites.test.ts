@@ -105,3 +105,32 @@ describe('見た目の識別性', () => {
     expect(new Set(shapes).size, '同じ輪郭の敵がいる').toBe(kinds.length);
   });
 });
+
+describe('アイテムの説明', () => {
+  it('回復量の説明が定数から組み立てられている', async () => {
+    const { t } = await import('../src/ui/i18n');
+    for (const lang of ['en', 'ja'] as const) {
+      const potion = t(lang, 'itemDesc.heal', { percent: Math.round(POTION_HEAL * 100) });
+      const elixir = t(lang, 'itemDesc.heal', { percent: Math.round(ELIXIR_HEAL * 100) });
+
+      // 文言に数値を直接書くと、バランス調整のたびに説明と実効果がずれる
+      expect(potion).toContain(String(Math.round(POTION_HEAL * 100)));
+      expect(elixir).toContain(String(Math.round(ELIXIR_HEAL * 100)));
+      expect(potion).not.toContain('{');
+      expect(elixir).not.toContain('{');
+      expect(potion).not.toBe(elixir);
+    }
+  });
+
+  it('すべてのアイテムに説明がある', async () => {
+    const { t } = await import('../src/ui/i18n');
+    const keys = ['itemDesc.heal', 'itemDesc.bomb', 'itemDesc.scroll', 'itemDesc.key'] as const;
+    for (const lang of ['en', 'ja'] as const) {
+      for (const key of keys) {
+        const text = t(lang, key, { percent: 40, damage: 20 });
+        expect(text.length, `${lang}/${key}`).toBeGreaterThan(0);
+        expect(text, `${lang}/${key} にプレースホルダが残っている`).not.toContain('{');
+      }
+    }
+  });
+});

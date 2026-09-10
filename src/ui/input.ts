@@ -62,6 +62,38 @@ export function intentFromKey(event: KeyboardEvent, phase: Phase): Intent | null
   return null;
 }
 
+/**
+ * スロットを押したときの解決。
+ *
+ * ホバーできる環境（マウス）では、名前と効果はホバーで読めるので押したら即使用。
+ * ホバーできない環境（タッチ）では、1回目のタップで選択して説明を出し、
+ * 同じスロットをもう一度タップして初めて使う。
+ *
+ * タッチで即使用にすると、何のアイテムか確かめる手段が「使ってみる」しかなくなる。
+ * 回復も爆弾も1個ずつしかないことがあるので、確かめるために失うのは重すぎる。
+ */
+export type SlotAction = { type: 'select'; slot: number } | { type: 'use'; slot: number };
+
+export function resolveSlotTap(
+  slot: number,
+  selected: number | null,
+  needsConfirm: boolean,
+): SlotAction {
+  if (!needsConfirm) return { type: 'use', slot };
+  return selected === slot ? { type: 'use', slot } : { type: 'select', slot };
+}
+
+/**
+ * ホバーできない環境か。
+ *
+ * 画面幅ではなくポインタの性質で判定する。タッチ対応のノートPCのように
+ * 「狭くないがタッチもできる」端末で誤判定しないため。
+ */
+export function isHoverless(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia('(hover: none)').matches;
+}
+
 export function intentFromDpad(value: string): Intent | null {
   if (value === 'wait') return { type: 'wait' };
   if (value === 'up' || value === 'down' || value === 'left' || value === 'right') {

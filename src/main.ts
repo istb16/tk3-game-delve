@@ -5,7 +5,13 @@ import { createGame } from './game/state';
 import { takeTurn } from './game/turn';
 import { tileIndex } from './game/dungeon';
 import { render } from './ui/view';
-import { intentFromDpad, intentFromKey, isGameKey } from './ui/input';
+import {
+  intentFromDpad,
+  intentFromKey,
+  isGameKey,
+  isHoverless,
+  resolveSlotTap,
+} from './ui/input';
 import { installFavicon } from './ui/favicon';
 import type { DpadMode, Lang, PanelTab, Settings } from './storage/settings';
 import { loadSettings, saveSettings } from './storage/settings';
@@ -29,11 +35,16 @@ applySettings();
 let save: SaveData = loadSave();
 /** 直前の Run の結果。リザルト画面が「記録を更新したか」を判定するのに使う。 */
 let lastRun: RunOutcome | null = null;
+/**
+ * タッチで選択中のスロット。ホバーできない環境で「1回目のタップで説明、
+ * 2回目で使用」を成り立たせるための一時的な状態。保存はしない。
+ */
+let selectedSlot: number | null = null;
 let state: GameState = createGame();
 draw();
 
 function draw(): void {
-  render(root, state, { settings, save, lastRun });
+  render(root, state, { settings, save, lastRun, selectedSlot });
 }
 
 /**
@@ -79,6 +90,10 @@ function visibleEnemyIds(current: GameState): Set<string> {
  * ゲームは入力駆動なので、ここが唯一の状態進行の入口になる。
  */
 function dispatch(intent: Intent): void {
+  // 何か別の操作をしたら選択は解除する。盤面が動いた後に
+  // 古い選択が残っていると、次のタップで意図しないアイテムを使ってしまう。
+  if (intent.type !== 'useItem') selectedSlot = null;
+
   if (intent.type === 'restart') {
     // 死亡中のみ再開を受け付ける。プレイ中の誤爆で Run が消えるのを防ぐ。
     if (state.phase !== 'dead') return;
@@ -156,8 +171,12 @@ window.addEventListener('keyup', () => {
 // 方向パッドと DELVE AGAIN。render() で DOM を作り直すため、
 // 個別要素ではなく root への委譲でハンドラを1つに保つ。
 root.addEventListener('click', (event) => {
+  // HTMLElement ではなく Element で受ける。
+  // ボタンの中身がインライン SVG（アイテムのアイコン）の場合、クリック先は
+  // SVGElement になり、HTMLElement で絞ると**アイコンを押しても反応しない**。
+  // ボタン自体は HTML なので、closest で辿った先で改めて絞る。
   const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
+  if (!(target instanceof Element)) return;
 
   const button = target.closest(
     '[data-dir], [data-action], [data-set-lang], [data-set-dpad], [data-set-sound],' +
@@ -198,7 +217,16 @@ root.addEventListener('click', (event) => {
 
   const slot = button.dataset['useSlot'];
   if (slot !== undefined) {
-    dispatch({ type: 'useItem', slot: Number(slot) });
+    // ホバーできない環境では、1回目のタップで説明を出して選択するだけにする。
+    // 即使用にすると、何のアイテムか確かめる手段が「使ってみる」しかなくなる。
+    const action = resolveSlotTap(Number(slot), selectedSlot, isHoverless());
+    if (action.type === 'select') {
+      selectedSlot = action.slot;
+      draw();
+      return;
+    }
+    selectedSlot = null;
+    dispatch({ type: 'useItem', slot: action.slot });
     return;
   }
 

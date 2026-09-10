@@ -73,6 +73,16 @@ kbd {
   background: var(--surface);
 }
 
+/* 設定は画面の最下部（方向キーより下）に置く。
+   プレイ中に触るものではないので、盤面や HUD の近くを占領させない。 */
+.settings {
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
 .hud__brand {
   display: flex;
   align-items: baseline;
@@ -702,6 +712,91 @@ kbd {
   letter-spacing: 0.08em;
 }
 
+
+
+/* --- ツールチップ ----------------------------------------------------------- */
+
+/* 名前と効果の表示。
+   マウスならホバー、キーボードならフォーカス、タッチなら1回目のタップ
+   （.slot--selected）で出す。表示状態は CSS が持つので、UI 側に状態を置かない。 */
+
+.tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: max-content;
+  max-width: min(180px, 60vw);
+  padding: 6px 8px;
+  transform: translateX(-50%);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface-2);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.5);
+  opacity: 0;
+  /* 出ていない間はクリックを奪わない。奪うと下のボタンが押せなくなる。 */
+  pointer-events: none;
+  transition: opacity 90ms ease-out;
+}
+
+.slot:hover .tip,
+.slot__btn:focus-visible + .tip,
+.slot--selected .tip,
+.gear--filled:hover .tip {
+  opacity: 1;
+}
+
+.tip__name {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.tip__desc {
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* 端の列は中央寄せだと画面外へはみ出すので、内側へ寄せる。
+   インベントリは4列なので、4n が右端・4n+1 が左端。 */
+.items__list .slot:nth-child(4n) .tip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.items__list .slot:nth-child(4n + 1) .tip {
+  left: 0;
+  transform: none;
+}
+
+/* 装備は縦並びなので左端に揃える */
+.gear .tip {
+  left: 0;
+  transform: none;
+}
+
+/* タッチで選択したときだけ出す案内。マウスでは邪魔なので出さない。 */
+.tip__hint {
+  margin-top: 2px;
+  color: var(--accent);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+/* 選択中のスロットは枠でも示す。ツールチップが画面外に出ても分かるように。 */
+.slot--selected {
+  border-color: var(--accent);
+}
+
+.gear {
+  position: relative;
+}
 
 /* --- 演出 ------------------------------------------------------------------ */
 

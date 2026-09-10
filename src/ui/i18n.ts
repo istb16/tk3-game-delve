@@ -93,6 +93,11 @@ export type MessageKey =
   | 'item.potion'
   | 'item.bomb'
   | 'item.elixir'
+  | 'itemDesc.heal'
+  | 'itemDesc.bomb'
+  | 'itemDesc.scroll'
+  | 'itemDesc.key'
+  | 'ui.tapAgain'
   | 'item.scroll'
   | 'item.key'
   | 'perk.poisonAttack'
@@ -322,6 +327,11 @@ const EN: Record<MessageKey, string> = {
   'ui.newBest': 'NEW BEST',
   'item.bomb': 'Bomb',
   'item.elixir': 'Elixir',
+  'itemDesc.heal': 'Restore {percent}% of Max HP',
+  'itemDesc.bomb': 'Deal {damage} damage all around. Breaks walls.',
+  'itemDesc.scroll': 'An unknown effect. Not always in your favour.',
+  'itemDesc.key': 'Opens a locked chest.',
+  'ui.tapAgain': 'tap again to use',
   'slot.weapon': 'Weapon',
   'slot.armor': 'Armor',
   'slot.ring': 'Ring',
@@ -511,6 +521,11 @@ const JA: Record<MessageKey, string> = {
   'ui.newBest': '自己ベスト',
   'item.bomb': 'Bomb',
   'item.elixir': 'Elixir',
+  'itemDesc.heal': 'HP を最大値の {percent}% 回復',
+  'itemDesc.bomb': '周囲8マスに {damage} ダメージ。壁も壊す',
+  'itemDesc.scroll': '未知の効果。当たりとは限らない',
+  'itemDesc.key': '施錠された宝箱を開ける',
+  'ui.tapAgain': 'もう一度タップで使用',
   'slot.weapon': '武器',
   'slot.armor': '防具',
   'slot.ring': '指輪',
