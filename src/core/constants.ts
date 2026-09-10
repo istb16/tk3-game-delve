@@ -20,7 +20,13 @@ export function eventChance(floor: number): number {
   return Math.min(0.15 + floor * 0.01, 0.4);
 }
 
-/** 鍵つきの宝箱になる確率。鍵を持ち歩く価値をここで作る。 */
+/**
+ * 鍵つきの宝箱になる確率。鍵を持ち歩く価値をここで作る。
+ *
+ * ただしレア以上が存在しない浅い階では施錠しない。
+ * 「確定でレア以上」と言いながら common を返すと、
+ * 枠を1つ空けて鍵を運んできた判断が裏切られる。
+ */
 export const LOCKED_CHEST_CHANCE = 0.35;
 
 /** 商人の売値 */

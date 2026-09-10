@@ -125,10 +125,12 @@ function checkEnrage(state: GameState, target: Enemy): void {
   if (hasStatus(target, 'rage')) return;
   if (target.hp > target.maxHp * ENRAGE_THRESHOLD) return;
 
+  // 倍率は rage ステータスにだけ持たせる。attack そのものも書き換えると
+  // enemyAttack が attackMultiplier で再び掛けるため、1.5倍のつもりが
+  // 2.25倍になる（実測: 攻撃20 の一撃が 45 になっていた）。
   // 持続を極端に長くして実質的に「以降ずっと」にする。
   // 別のフラグを増やすより、既にある仕組みで表現できる方が状態が散らからない。
   applyStatus(target, 'rage', 9999, ENRAGE_MULTIPLIER);
-  target.attack = Math.floor(target.attack * ENRAGE_MULTIPLIER);
   addLog(state.log, 'log.enraged', { name: target.name }, 'bad');
 }
 

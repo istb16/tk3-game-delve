@@ -1,4 +1,5 @@
 import type { ItemId } from '../core/types';
+import { FIRST_RARE_FLOOR } from './equipment';
 
 /** アイテムテーブル。効果そのものは game/loot.ts の applyItem が持つ。 */
 
@@ -31,8 +32,9 @@ export const ITEMS: readonly ItemDef[] = [
   {
     id: 'key',
     name: 'Key',
-    // 鍵つきの宝箱に出会う頻度と釣り合わせる。余ると持ち歩く意味が消える
-    perFloor: (_floor, roll) => (roll < 0.4 ? 1 : 0),
+    // 鍵つきの宝箱に出会う頻度と釣り合わせる。余ると持ち歩く意味が消える。
+    // 施錠された宝箱が存在しない階では出さない（使い道のない物で枠を埋めない）。
+    perFloor: (floor, roll) => (floor >= FIRST_RARE_FLOOR - 1 && roll < 0.4 ? 1 : 0),
   },
 ];
 

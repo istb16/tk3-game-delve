@@ -31,7 +31,13 @@ import { addLog, addLogOnce } from '../core/log';
 import type { ScrollEffect } from '../data/items';
 import { ITEMS, SCROLL_TABLE } from '../data/items';
 import { eventDef, eventsAt } from '../data/events';
-import { compareEquipment, equipmentAt, rareEquipmentAt, toEquipment } from '../data/equipment';
+import {
+  FIRST_RARE_FLOOR,
+  compareEquipment,
+  equipmentAt,
+  rareEquipmentAt,
+  toEquipment,
+} from '../data/equipment';
 import { UNREACHABLE, bfsDistances, chebyshev, tileAt, tileIndex } from './dungeon';
 import { addBonus, equip } from './progression';
 import { applyStatus } from './status';
@@ -70,7 +76,9 @@ export function spawnEntities(
   }
   for (let i = 0; i < chestsPerFloor(rng.next()); i++) {
     // 鍵つきは中身が良い代わりに Key を要求する。鍵を持ち歩く価値をここで作る。
-    payloads.push({ type: 'chest', locked: rng.chance(LOCKED_CHEST_CHANCE) });
+    // レア以上が存在しない浅い階では施錠しない（約束を守れないため）。
+    const canLock = floor >= FIRST_RARE_FLOOR;
+    payloads.push({ type: 'chest', locked: canLock && rng.chance(LOCKED_CHEST_CHANCE) });
   }
   if (rng.chance(eventChance(floor))) {
     payloads.push({ type: 'event', eventId: rng.pick(eventsAt(floor)).id });
@@ -140,6 +148,12 @@ function collect(state: GameState, entity: Entity): boolean {
     case 'chest':
       return openChest(state, entity, payload.locked);
     case 'event': {
+      // 同じマスの選択が二重に積まれないようにする。
+      // Swift Step でターンを消費せずに踏むとモーダルが開かないまま次の一歩に進めるので、
+      // 踏み直すと同じイベントが2回発火してしまう（対価も報酬も2回）。
+      if (state.pendingChoices.some((c) => c.kind === 'event' && c.entityId === entity.id)) {
+        return false;
+      }
       // 効果は選択してから。踏んだだけで結果が決まるとイベントが判断でなくなる。
       state.pendingChoices.push({
         kind: 'event',

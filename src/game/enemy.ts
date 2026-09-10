@@ -173,10 +173,14 @@ export function splitChildren(parent: Enemy, state: GameState): Enemy[] {
  *
  * プレイヤーの隣には置かない — 「報酬を受け取った瞬間に囲まれていた」は
  * リスクではなく事故。近づいてくる余地を残す。
+ *
+ * 種類を指定しても minFloor は破らない。イベント経由なら出してよい、という
+ * 抜け道を作ると「出現階」の保証がその1箇所だけ嘘になる。
  * @returns 実際に湧いた数
  */
 export function spawnGuardian(state: GameState, count: number, kind?: EnemyKind): number {
-  const def = kind ? (ENEMIES.find((e) => e.kind === kind) ?? SPAWN_POOL[0]) : null;
+  const requested = kind ? ENEMIES.find((e) => e.kind === kind) : undefined;
+  const def = requested && requested.minFloor <= state.floor ? requested : null;
   const dist = bfsDistances(state.dungeon, state.player.pos);
 
   const spots: Vec2[] = [];

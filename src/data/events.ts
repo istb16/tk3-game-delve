@@ -32,7 +32,9 @@ export const EVENTS: readonly EventDef[] = [
   { id: 'healingSpring', optionCount: 2, minFloor: 1, weight: 4 },
   { id: 'strangeAltar', optionCount: 2, minFloor: 4, weight: 2 },
   { id: 'hiddenRoom', optionCount: 2, minFloor: 2, weight: 3 },
-  { id: 'treasury', optionCount: 2, minFloor: 6, weight: 2 },
+  // Warden が守る前提のイベントなので、Warden の出現階（7）に合わせる。
+  // ここがずれていると spawnGuardian が要求を無視して別の敵を出すことになる。
+  { id: 'treasury', optionCount: 2, minFloor: 7, weight: 2 },
 ];
 
 const BY_ID = new Map(EVENTS.map((e) => [e.id, e]));

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Enemy, GameState } from '../src/core/types';
-import { BOSS_INTERVAL, GUARD_REDUCTION, SHIELD_COOLDOWN, isBossFloor } from '../src/core/constants';
+import {
+  BOSS_INTERVAL,
+  ENRAGE_MULTIPLIER,
+  GUARD_REDUCTION,
+  SHIELD_COOLDOWN,
+  isBossFloor,
+} from '../src/core/constants';
 import { ENEMIES, SPAWN_POOL, spawnWeight } from '../src/data/enemies';
 import { createGame, descend } from '../src/game/state';
 import { takeTurn } from '../src/game/turn';
@@ -153,17 +159,30 @@ describe('敵の特殊能力', () => {
     expect(guardedDamage).toBe(Math.max(1, Math.floor(plainDamage * GUARD_REDUCTION)));
   });
 
-  it('ボスは半分を切ると攻撃力が上がる', () => {
+  it('ボスは半分を切ると激昂し、倍率はちょうど1回だけ掛かる', () => {
     const state = createGame(5);
+    state.player.evasion = 0;
+    state.player.defense = 0;
+    state.player.hp = 100000;
+    state.player.maxHp = 100000;
     const boss = makeEnemy(state, { ability: 'boss', hp: 100, maxHp: 100, attack: 20 });
 
     damageEnemy(state, boss, 10);
     expect(hasStatus(boss, 'rage')).toBe(false);
-    const attackBefore = boss.attack;
+
+    const beforeHp = state.player.hp;
+    enemyAttack(state, boss);
+    const normalHit = beforeHp - state.player.hp;
 
     damageEnemy(state, boss, 50);
     expect(hasStatus(boss, 'rage')).toBe(true);
-    expect(boss.attack).toBeGreaterThan(attackBefore);
+
+    const midHp = state.player.hp;
+    enemyAttack(state, boss);
+    const ragedHit = midHp - state.player.hp;
+
+    // attack そのものと rage の両方に倍率を持たせると 1.5 のつもりが 2.25 になる
+    expect(ragedHit).toBe(Math.floor(normalHit * ENRAGE_MULTIPLIER));
   });
 
   it('回避持ちは攻撃を外させることがあり、外れてもターンは進む', () => {

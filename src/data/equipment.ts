@@ -79,7 +79,12 @@ export function toEquipment(def: EquipmentDef): Equipment {
   };
 }
 
-/** 確定でレア以上を出す（ボス撃破の報酬など）。 */
+/** レア以上が1つでも存在する最も浅い階。これより浅い階では「確定レア」を約束できない。 */
+export const FIRST_RARE_FLOOR = Math.min(
+  ...EQUIPMENT.filter((e) => e.rarity !== 'common').map((e) => e.minFloor),
+);
+
+/** 確定でレア以上を出す（施錠された宝箱・ボス撃破の報酬）。 */
 export function rareEquipmentAt(floor: number, rng: { pick<T>(x: readonly T[]): T }): Equipment {
   const rare = EQUIPMENT_POOL.filter((e) => e.minFloor <= floor && e.rarity !== 'common');
   const pool = rare.length > 0 ? rare : EQUIPMENT_POOL.filter((e) => e.minFloor <= floor);
