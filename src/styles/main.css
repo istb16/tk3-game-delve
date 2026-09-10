@@ -343,6 +343,14 @@ kbd {
 
 /* --- パーク ---------------------------------------------------------------- */
 
+/*
+ * パークは取るほど増える。ここだけスクロールさせる。
+ *
+ * 上限をサイドパネル全体に置くと、ツールチップ（.tip）は絶対配置で
+ * スロットの上に出るので**スクロール枠に切り取られて読めなくなる**。
+ * タッチの「1回目のタップで説明」がそこで死ぬので、
+ * 上限は tip を持たないリスト（パークとログ）にだけ置く。
+ */
 .perk__list {
   display: flex;
   flex-wrap: wrap;
@@ -350,6 +358,8 @@ kbd {
   margin: 0;
   padding: 0;
   list-style: none;
+  max-height: 76px;
+  overflow-y: auto;
 }
 
 .perk {
@@ -482,9 +492,18 @@ kbd {
   gap: var(--gap);
 }
 
+/*
+ * 最新が下。**DOM は新しい順**で、ここで向きを反転して見た目の順に戻す
+ * （→ view.ts の renderLog）。**片方だけ変えると並びが逆さになる。**
+ *
+ * column-reverse にするのは見た目のためだけではない。スクロールの原点が
+ * 下端になるので、溢れていても最初から最新の行が見えている。
+ * 通常の column だと、render() が毎ターン innerHTML を作り直すたびに
+ * scrollTop が 0 に戻り、**一番読みたい行が毎回画面の下に隠れる。**
+ */
 .log__list {
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   gap: 2px;
   margin: 0;
   padding: 0;
@@ -590,12 +609,11 @@ kbd {
 .toasts {
   position: fixed;
   /*
-   * HUD には重ねない。HP と GOLD が読めなくなっては、
-   * ログを見せるために肝心の数字を潰したことになる。
-   * HUD の高さは狭い画面で 15〜18dvh に収まるので、その下から積む。
-   * JS で測ると、リサイズと回転のたびに測り直す仕掛けが要る。
+   * 上端は盤面の実寸に合わせて JS が書き込む（→ ui/toast.ts の anchorTop）。
+   * ここの値は書き込まれるまでの保険。**割合（dvh）では HUD を避けきれない** —
+   * HUD の高さは固定 px なので、短いビューポートでは必ず追い越される。
    */
-  top: calc(env(safe-area-inset-top, 0px) + 21dvh);
+  top: calc(env(safe-area-inset-top, 0px) + 140px);
   right: 10px;
   z-index: 15;
   display: flex;
@@ -1380,15 +1398,15 @@ kbd {
   }
 
   /*
-   * パネルに上限を置き、余りは必ず盤面に回す。
-   * 上限がないと、装備とアイテムを開いた瞬間にパネルが縦を食い尽くし、
-   * iPhone SE では盤面が 100px まで潰れて何も見えなくなる。
-   * 溢れた分はパネルの中でスクロールさせる（ページは動かさない）。
+   * パネル自体はスクロールさせない。**ここに overflow を置くと、
+   * アイテムのツールチップが枠に切り取られて一切読めなくなる。**
+   *
+   * 「パネルが縦を食い尽くして盤面が潰れる」問題は、伸びる中身
+   * （ログとパーク）にだけ上限を置いて解く。装備とアイテムは行数が
+   * 決まっているので、この2つを抑えればパネルの高さは有界になる。
    */
   .stage__side {
     min-height: 0;
-    max-height: 34dvh;
-    overflow-y: auto;
   }
 
   .hud__stat--bar {
@@ -1402,8 +1420,11 @@ kbd {
     display: flex;
   }
 
+  /* ログだけは行数ぶん伸びるので上限を置く。column-reverse なので、
+     溢れていても最新の行が見えたまま古い方へ遡れる。 */
   .log__list {
-    max-height: none;
+    max-height: 26dvh;
+    overflow-y: auto;
   }
 
   .ach__list {
@@ -1518,6 +1539,37 @@ kbd {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-rows: repeat(3, 46px);
     justify-content: stretch;
+  }
+}
+
+/*
+ * 横向きのスマートフォン。
+ *
+ * 幅は 900px 未満なので上の1カラム規則に落ちるが、横向きでは**足りないのは
+ * 高さだけ**で、幅は余っている。1カラムのまま高さで盤面を決めると、
+ * iPhone 15 の横向き（852x393）で盤面が 102px = 1マス 7px まで潰れ、
+ * 敵と地形の区別が付かなくなる。盤面とパネルを左右に並べ直して高さを返す。
+ */
+@media (max-width: 900px) and (orientation: landscape) and (min-width: 640px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  /* 横向きでは1行ぶんの高さが盤面の一辺に直結する。
+     ブランド行と操作の案内は畳んで、その高さを盤面に回す。 */
+  .hud__brand,
+  .hint {
+    display: none;
+  }
+
+  /* 左右に並ぶので、パネルは行の高さに収まればよい。 */
+  .stage__side {
+    align-self: stretch;
+  }
+
+  .log__list {
+    max-height: none;
   }
 }
 
