@@ -335,20 +335,31 @@ kbd {
  *
  * 名前で並べていた頃は、取るほど背が高くなるので上限とスクロールが要った。
  * アイコンなら同じものが個数にまとまるので、**種類の数（10）で頭打ちになる**。
- * 高さが有界になったぶん、切り取る枠を持たずに済む —
- * ツールチップ（.tip）は絶対配置なので、スクロール枠に入れると読めなくなる。
+ * 高さが有界になったぶん、切り取る枠を持たずに済む。
+ *
+ * **このリストに overflow を置かない。** `.tip` は絶対配置でチップの上、
+ * つまりリストの枠の外に出る。`overflow-x: auto` だけでも `overflow-y` は
+ * `visible` から `auto` に計算されるので、横に流すつもりで縦が切り取られ、
+ * ツールチップが一切出なくなる（負の方向へはスクロールできないので到達もできない）。
+ * 絵しか出ていない以上、それはパークの名前を知る手段が消えることと同じ。
+ * 狭い画面で横1行に収めたくなるが、その値段がこれなら折り返す方がよい。
  */
 .perk__list {
+  /*
+   * ツールチップの原点はチップではなく**リスト**に置く（→ .perk .tip）。
+   *
+   * チップは 24px しかないのに説明は最大 180px あるので、チップ基準だと
+   * どう寄せても端で画面外へ出る（中央寄せなら左へ、左寄せなら右へ）。
+   * リストの左端を原点にすれば、伸びる先は常にパネルの内側から右 180px までで、
+   * 折り返しの行数にも列の位置にも依存しない。
+   */
+  position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
   margin: 8px 0 0;
   padding: 0;
   list-style: none;
-}
-
-.perk {
-  position: relative;
 }
 
 /*
@@ -361,7 +372,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 1px 4px;
+  padding: 1px 3px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: transparent;
@@ -373,8 +384,10 @@ kbd {
 
 .perk__icon {
   display: block;
-  width: 18px;
-  height: 18px;
+  /* 16x16 のドット絵を等倍で置く。半端に拡大すると 1px の黒縁が滲んで、
+     小さい絵の識別性がそこだけ落ちる。 */
+  width: 16px;
+  height: 16px;
 }
 
 .perk__count {
@@ -1050,15 +1063,9 @@ kbd {
   transform: none;
 }
 
-/* パークは横一列に並ぶので、両端だけ内側へ寄せる。中央寄せのままだと画面外へ出る。 */
-.perk:first-child .tip {
+/* リスト（→ .perk__list の position）の左上を原点に、その真上へ出す。 */
+.perk .tip {
   left: 0;
-  transform: none;
-}
-
-.perk:last-child .tip {
-  left: auto;
-  right: 0;
   transform: none;
 }
 
@@ -1403,11 +1410,15 @@ kbd {
    *
    * 落とすのはバーと標語だけで、数値は全部残す。HP と EXP は
    * 「あとどれだけか」が読めれば足りるので、絵がなくても情報は欠けない。
+   *
+   * **`nowrap` で1行を強制してはいけない。** 入り切らない時に折り返す道を
+   * 塞ぐと、代わりに数値が自分の枠からはみ出して隣の見出しの上に重なる
+   * （実測: 320px で「188/210」が EXP に 24px、「1234/1500」が GOLD に 31px）。
+   * 1行に収まるかは幅と桁数で決まるので、収まらない時は素直に2行へ落とす。
    */
   .hud {
-    flex-wrap: nowrap;
-    gap: 8px;
-    padding: 6px 10px;
+    gap: 6px;
+    padding: 6px 8px;
   }
 
   .hud__tagline {
@@ -1416,14 +1427,13 @@ kbd {
 
   .hud__title {
     font-size: 15px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.1em;
   }
 
   .hud__stats {
     flex: 1;
-    flex-wrap: nowrap;
     justify-content: space-between;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
   }
 
@@ -1484,8 +1494,12 @@ kbd {
     min-height: 0;
   }
 
+  /*
+   * バーを消したので、広い画面用の下限（190px）は要らない。ただし 0 にすると
+   * 中身より狭く潰れ、数値が枠を越えて隣に重なる。`auto`（＝中身ぶん）に戻す。
+   */
   .hud__stat--bar {
-    min-width: 0;
+    min-width: auto;
   }
 
   /* 狭い画面では縦に積むと情報量が多すぎるので、タブで切り替える。
@@ -1508,12 +1522,6 @@ kbd {
   .log__list {
     max-height: calc(var(--tab-h) - 44px);
     overflow-y: auto;
-  }
-
-  /* パークは横に流す。折り返すと、取った数だけ装備タブの背が伸びる。 */
-  .perk__list {
-    flex-wrap: nowrap;
-    overflow-x: auto;
   }
 
   .ach__list {

@@ -1,6 +1,6 @@
 {
   "name": "tk3-game-delve",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "description": "DELVE - Go deeper. Survive longer. A single-page roguelike dungeon crawler.",
   "type": "module",
